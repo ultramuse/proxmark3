@@ -1,0 +1,115 @@
+name: Advanced Proxmark3 Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+
+env:
+  REPO_NAME: RfidResearchGroup/proxmark3
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            CC: gcc
+            CXX: g++
+            MAKE_CMD: make
+          - os: windows-latest
+            CC: cl
+            CXX: cl
+            MAKE_CMD: nmake
+          - os: macos-latest
+            CC: clang
+            CXX: clang++
+            MAKE_CMD: make
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+        fetch-depth: 0
+
+    - name: Set up environment (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential git pkg-config \
+          libreadline-dev libusb-1.0-0-dev \
+          libbz2-dev libpython3-dev \
+          libboost-all-dev \
+          gcc-arm-linux-gnueabihf \
+          gcc-aarch64-linux-gnu
+
+    - name: Set up environment (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install pkg-config readline usb-compat boost
+
+    - name: Set up environment (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure build
+      run: |
+        echo "Build configuration:"
+        echo "OS: ${{ runner.os }}"
+        echo "Compiler: ${{ env.CC }}"
+        echo "Make command: ${{ env.MAKE_CMD }}"
+
+    - name: Build firmware
+      run: |
+        ${{ env.MAKE_CMD }} clean
+        ${{ env.MAKE_CMD }} firmware
+
+    - name: Build client
+      run: |
+        ${{ env.MAKE_CMD }} client
+
+    - name: Run basic tests
+      run: |
+        # Add basic test commands here
+        echo "Running basic functionality tests..."
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: proxmark3-${{ runner.os }}-${{ github.sha }}
+        path: |
+          client/proxmark3*
+          armsrc/obj/*.elf
+          bootrom/obj/*.elf
+          recovery/obj/*.elf
+        retention-days: 30
+
+  create-release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Create release package
+      run: |
+        mkdir -p release
+        cp -r proxmark3-*/* release/
+        tar -czf proxmark3-${{ github.tag_name }}.tar.gz release/
+        zip -r proxmark3-${{ github.tag_name }}.zip release/
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          proxmark3-${{ github.tag_name }}.tar.gz
+          proxmark3-${{ github.tag_name }}.zip
