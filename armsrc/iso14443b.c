@@ -200,6 +200,32 @@ static uint32_t s_iso14b_timeout = MAX_14B_TIMEOUT;
 static bool s_field_on = false;
 
 /*
+Default HF 14b config is set to:
+    polling_loop_annotation = {{0}, 0, 0, 0} (disabled)
+*/
+static hf14b_config_t hf14bconfig = { {{0}, 0, 0, 0} };
+
+void printHf14bConfig(void) {
+    DbpString(_CYAN_("HF 14b config"));
+    Dbprintf("  [p] Polling loop annotation.... %s %*D",
+             (hf14bconfig.polling_loop_annotation.frame_length <= 0) ? _YELLOW_("disabled") : _GREEN_("enabled"),
+             hf14bconfig.polling_loop_annotation.frame_length,
+             hf14bconfig.polling_loop_annotation.frame,
+             ""
+            );
+}
+
+void setHf14bConfig(const hf14b_config_t *hc) {
+    if (hc->polling_loop_annotation.frame_length >= 0) {
+        memcpy(&hf14bconfig.polling_loop_annotation, &hc->polling_loop_annotation, sizeof(iso14b_polling_frame_t));
+    }
+}
+
+hf14b_config_t *getHf14bConfig(void) {
+    return &hf14bconfig;
+}
+
+/*
 * ISO 14443-B communications
 * --------------------------
 * Reader to card | ASK  - Amplitude Shift Keying Modulation (PCD to PICC for Type B) (NRZ-L encodig)
@@ -786,14 +812,14 @@ void SimulateIso14443bTag(const uint8_t *pupi) {
 
     // prepare "ATQB" tag answer (encoded):
     CodeIso14443bAsTag(respATQB, sizeof(respATQB));
-    uint8_t *encodedATQB = BigBuf_malloc(ts->max);
+    uint8_t *encodedATQB = BigBuf_calloc(ts->max);
     uint16_t encodedATQBLen = ts->max;
     memcpy(encodedATQB, ts->buf, ts->max);
 
 
     // prepare "OK" tag answer (encoded):
     CodeIso14443bAsTag(respOK, sizeof(respOK));
-    uint8_t *encodedOK = BigBuf_malloc(ts->max);
+    uint8_t *encodedOK = BigBuf_calloc(ts->max);
     uint16_t encodedOKLen = ts->max;
     memcpy(encodedOK, ts->buf, ts->max);
 
@@ -988,18 +1014,18 @@ void Simulate_iso14443b_srx_tag(uint8_t *uid) {
 
     tosend_t *ts = get_tosend();
 
-    uint8_t *receivedCmd = BigBuf_malloc(MAX_FRAME_SIZE);
+    uint8_t *receivedCmd = BigBuf_calloc(MAX_FRAME_SIZE);
 
     // prepare "ATQB" tag answer (encoded):
     CodeIso14443bAsTag(respATQB, sizeof(respATQB));
-    uint8_t *encodedATQB = BigBuf_malloc(ts->max);
+    uint8_t *encodedATQB = BigBuf_calloc(ts->max);
     uint16_t encodedATQBLen = ts->max;
     memcpy(encodedATQB, ts->buf, ts->max);
 
 
     // prepare "OK" tag answer (encoded):
     CodeIso14443bAsTag(respOK, sizeof(respOK));
-    uint8_t *encodedOK = BigBuf_malloc(ts->max);
+    uint8_t *encodedOK = BigBuf_calloc(ts->max);
     uint16_t encodedOKLen = ts->max;
     memcpy(encodedOK, ts->buf, ts->max);
 
@@ -2053,9 +2079,28 @@ int iso14443b_select_card(iso14b_card_select_t *card) {
     uint8_t r_pupid[14] = { 0x00 };
     uint8_t r_attrib[3] = { 0x00 };
 
-    // first, wake up the tag
     uint32_t start_time = 0;
     uint32_t eof_time = 0;
+
+    // Send polling loop annotation if configured (3 times before WUPB)
+    if (hf14bconfig.polling_loop_annotation.frame_length > 0) {
+        const iso14b_polling_frame_t *pla = &hf14bconfig.polling_loop_annotation;
+
+        for (int i = 0; i < 3; i++) {
+            CodeAndTransmit14443bAsReader(pla->frame, pla->frame_length, &start_time, &eof_time, true);
+
+            // Add extra delay if specified
+            if (pla->extra_delay > 0) {
+                SpinDelayUs(pla->extra_delay * 1000);
+            }
+
+            // Reset timing for the next iteration
+            start_time = 0;
+            eof_time = 0;
+        }
+    }
+
+    // first, wake up the tag
     CodeAndTransmit14443bAsReader(wupb, sizeof(wupb), &start_time, &eof_time, true);
 
     eof_time += DELAY_ISO14443B_PCD_TO_PICC_READER;
@@ -2405,8 +2450,8 @@ void SniffIso14443b(void) {
     uint8_t ua_buf[MAX_FRAME_SIZE] = {0};
     Uart14bInit(ua_buf);
 
-    //Demod14bInit(BigBuf_malloc(MAX_FRAME_SIZE), MAX_FRAME_SIZE);
-    //Uart14bInit(BigBuf_malloc(MAX_FRAME_SIZE));
+    //Demod14bInit(BigBuf_calloc(MAX_FRAME_SIZE));
+    //Uart14bInit(BigBuf_calloc(MAX_FRAME_SIZE));
 
     // Set FPGA in the appropriate mode
     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER | FPGA_HF_READER_SUBCARRIER_848_KHZ | FPGA_HF_READER_MODE_SNIFF_IQ);

@@ -434,7 +434,7 @@
         },
         "data help": {
             "command": "data help",
-            "description": "help This help ----------- ------------------------- General------------------------- clear Clears various buffers used by the graph window hide Hide the graph window load Load contents of file into graph window num Converts dec/hex/bin plot Show the graph window print Print the data in the DemodBuffer save Save signal trace data setdebugmode Set Debugging Level on client side xor Xor a input string ----------- ------------------------- Modulation------------------------- biphaserawdecode Biphase decode bin stream in DemodBuffer detectclock Detect ASK, FSK, NRZ, PSK clock rate of wave in GraphBuffer fsktonrz Convert fsk2 to nrz wave for alternate fsk demodulating (for weak fsk) manrawdecode Manchester decode binary stream in DemodBuffer modulation Identify LF signal for clock and modulation rawdemod Demodulate the data in the GraphBuffer and output binary ----------- ------------------------- Graph------------------------- askedgedetect Adjust Graph for manual ASK demod autocorr Autocorrelation over window convertbitstream Convert GraphBuffer's 0/1 values to 127 / -127 cthreshold Average out all values between dirthreshold Max rising higher up-thres/ Min falling lower down-thres decimate Decimate samples envelope Generate square envelope of samples grid overlay grid on graph window getbitstream Convert GraphBuffer's >=1 values to 1 and <1 to 0 hpf Remove DC offset from trace iir Apply IIR buttersworth filter on plot data ltrim Trim samples from left of trace mtrim Trim out samples from the specified start to the specified stop norm Normalize max/min to +/-128 rtrim Trim samples from right of trace setgraphmarkers Set the markers in the graph window shiftgraphzero Shift 0 for Graphed wave + or - shift value timescale Set cursor display timescale undecimate Un-decimate samples zerocrossings Count time between zero-crossings ----------- ------------------------- Operations------------------------- asn1 ASN1 decoder atr ATR lookup bmap Convert hex value according a binary template crypto Encrypt and decrypt data diff Diff of input files --------------------------------------------------------------------------------------- data clear available offline: yes This function clears the BigBuf on device side and graph window ( graphbuffer )",
+            "description": "help This help ----------- ------------------------- General------------------------- clear Clears various buffers used by the graph window hide Hide the graph window load Load contents of file into graph window num Converts dec/hex/bin plot Show the graph window print Print the data in the DemodBuffer save Save signal trace data setdebugmode Set Debugging Level on client side xor Xor a input string ----------- ------------------------- Modulation------------------------- biphaserawdecode Biphase decode bin stream in DemodBuffer detectclock Detect ASK, FSK, NRZ, PSK clock rate of wave in GraphBuffer fsktonrz Convert fsk2 to nrz wave for alternate fsk demodulating (for weak fsk) manrawdecode Manchester decode binary stream in DemodBuffer modulation Identify LF signal for clock and modulation rawdemod Demodulate the data in the GraphBuffer and output binary ----------- ------------------------- Graph------------------------- askedgedetect Adjust Graph for manual ASK demod autocorr Autocorrelation over window convertbitstream Convert GraphBuffer's 0/1 values to 127 / -127 cthreshold Average out all values between dirthreshold Max rising higher up-thres/ Min falling lower down-thres decimate Decimate samples envelope Generate square envelope of samples grid overlay grid on graph window getbitstream Convert GraphBuffer's >=1 values to 1 and <1 to 0 hpf Remove DC offset from trace iir Apply IIR buttersworth filter on plot data ltrim Trim samples from left of trace mtrim Trim out samples from the specified start to the specified stop norm Normalize max/min to +/-128 rtrim Trim samples from right of trace setgraphmarkers Set the markers in the graph window shiftgraphzero Shift 0 for Graphed wave + or - shift value timescale Set cursor display timescale undecimate Un-decimate samples zerocrossings Count time between zero-crossings ----------- ------------------------- Operations------------------------- asn1 ASN1 decoder atr ATR lookup bmap Convert hex value according a binary template crypto Encrypt and decrypt data diff Diff of input files qrcode Create a QR code --------------------------------------------------------------------------------------- data clear available offline: yes This function clears the BigBuf on device side and graph window ( graphbuffer )",
             "notes": [
                 "data clear"
             ],
@@ -621,6 +621,21 @@
                 "-x, --hex output in hex (omit for binary output)"
             ],
             "usage": "data print [-hisx] [-o <dec>]"
+        },
+        "data qrcode": {
+            "command": "data qrcode",
+            "description": "Generate a QR code with the input data",
+            "notes": [
+                "data qrcode -f <filename>",
+                "data qrcode -d 123456789"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "-f, --file <fn> Specify a filename",
+                "-d, --data <hex> message as hex bytes"
+            ],
+            "usage": "data qrcode [-h] [-f <fn>] [-d <hex>]"
         },
         "data rawdemod": {
             "command": "data rawdemod",
@@ -1341,11 +1356,13 @@
                 "-t, --timeout <ms> Timeout in milliseconds",
                 "-b <dec> Number of bits to send. Useful for send partial byte",
                 "-v, --verbose Verbose output",
+                "-w, --wait <us> Wait in microseconds between select and command",
                 "--topaz Use Topaz protocol to send command",
                 "--crypto1 Use crypto1 session",
+                "--schann use secure channel. Must have key",
                 "<hex> Raw bytes to send"
             ],
-            "usage": "hf 14a raw [-hack3rsv] [-t <ms>] [-b <dec>] [--topaz] [--crypto1] <hex> [<hex>]..."
+            "usage": "hf 14a raw [-hack3rsv] [-t <ms>] [-b <dec>] [-w <us>] [--topaz] [--crypto1] [--schann] <hex> [<hex>]..."
         },
         "hf 14a reader": {
             "command": "hf 14a reader",
@@ -1382,21 +1399,22 @@
                 "hf 14a sim -t 10 -> ST25TA IKEA Rothult",
                 "hf 14a sim -t 11 -> Javacard (JCOP)",
                 "hf 14a sim -t 12 -> 4K Seos card",
-                "hf 14a sim -t 13 -> MIFARE Ultralight C"
+                "hf 14a sim -t 13 -> MIFARE Ultralight C",
+                "hf 14a sim -t 14 -> MIFARE Ultralight AES"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-t, --type <1-12> Simulation type to use",
+                "-t, --type <1-14> Simulation type to use",
                 "-u, --uid <hex> <4|7|10> hex bytes UID",
                 "-n, --num <dec> Exit simulation after <numreads> blocks have been read by reader. 0 = infinite",
                 "-x Performs the 'reader attack', nr/ar attack against a reader",
                 "--sk Fill simulator keys from found keys",
                 "-v, --verbose verbose output",
-                "--c1 UL-C Auth - all zero handshake part 1",
-                "--c2 UL-C Auth - all zero handshake part 2"
+                "--z1 ULC/ULAES Auth - all zero handshake part 1",
+                "--z2 ULC/ULAES Auth - all zero handshake part 2"
             ],
-            "usage": "hf 14a sim [-hxv] -t <1-12> [-u <hex>] [-n <dec>] [--sk] [--c1] [--c2]"
+            "usage": "hf 14a sim [-hxv] -t <1-14> [-u <hex>] [-n <dec>] [--sk] [--z1] [--z2]"
         },
         "hf 14a simaid": {
             "command": "hf 14a simaid",
@@ -1492,7 +1510,7 @@
         },
         "hf 14b help": {
             "command": "hf 14b help",
-            "description": "--------- ----------------------- General ----------------------- help This help list List ISO-14443-B history --------- ----------------------- Operations ----------------------- view Display content from tag dump file valid SRIX4 checksum test --------- ------------------ Calypso / Mobib ------------------ --------------------------------------------------------------------------------------- hf 14b list available offline: yes Alias of `trace list -t 14b -c` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
+            "description": "--------- ----------------------- General ----------------------- help This help list List ISO-14443-B history --------- ----------------------- Operations ----------------------- view Display content from tag dump file valid SRIX4 checksum test --------- ------------------ Calypso / Mobib ------------------ --------------------------------------------------------------------------------------- hf 14b config available offline: no --------------------------------------------------------------------------------------- hf 14b list available offline: yes Alias of `trace list -t 14b -c` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
             "notes": [
                 "hf 14b list --frame -> show frame delay times",
                 "hf 14b list -1 -> use trace buffer"
@@ -1533,9 +1551,10 @@
             ],
             "offline": false,
             "options": [
-                "-h, --help This help"
+                "-h, --help This help",
+                "-o, --old for old cards"
             ],
-            "usage": "hf 14b mobib [-h]"
+            "usage": "hf 14b mobib [-ho]"
         },
         "hf 14b ndefread": {
             "command": "hf 14b ndefread",
@@ -2710,17 +2729,19 @@
             "description": "Authenticate",
             "notes": [
                 "hf felica liteauth -i 11100910C11BC407",
-                "hf felica liteauth -k 46656c69436130313233343536616263",
-                "hf felica liteauth -c 701185c59f8d30afeab8e4b3a61f5cc4 -k 46656c69436130313233343536616263"
+                "hf felica liteauth --key 46656c69436130313233343536616263",
+                "hf felica liteauth --key 46656c69436130313233343536616263 -k",
+                "hf felica liteauth -c 701185c59f8d30afeab8e4b3a61f5cc4 --key 46656c69436130313233343536616263"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-k, --key <hex> set card key, 16 bytes",
+                "--key <hex> set card key, 16 bytes",
                 "-c, <hex> set random challenge, 16 bytes",
-                "-i, <hex> set custom IDm"
+                "-i, <hex> set custom IDm",
+                "-k, keep signal field ON after receive"
             ],
-            "usage": "hf felica liteauth [-h] [-k <hex>] [-c <hex>] [-i <hex>]"
+            "usage": "hf felica liteauth [-hk] [--key <hex>] [-c <hex>] [-i <hex>]"
         },
         "hf felica litedump": {
             "command": "hf felica litedump",
@@ -2730,9 +2751,11 @@
             ],
             "offline": false,
             "options": [
-                "-h, --help This help"
+                "-h, --help This help",
+                "-i, <hex> set custom IDm",
+                "--key <hex> set card key, 16 bytes"
             ],
-            "usage": "hf felica litedump [-h]"
+            "usage": "hf felica litedump [-h] [-i <hex>] [--key <hex>]"
         },
         "hf felica litesim": {
             "command": "hf felica litesim",
@@ -3233,7 +3256,7 @@
         },
         "hf help": {
             "command": "hf help",
-            "description": "-------- ----------------------- High Frequency ----------------------- 14a { ISO14443A RFIDs... } 14b { ISO14443B RFIDs... } 15 { ISO15693 RFIDs... } cipurse { Cipurse transport Cards... } epa { German Identification Card... } emrtd { Machine Readable Travel Document... } felica { ISO18092 / FeliCa RFIDs... } fido { FIDO and FIDO2 authenticators... } fudan { Fudan RFIDs... } gallagher { Gallagher DESFire RFIDs... } iclass { ICLASS RFIDs... } ict { ICT MFC/DESfire RFIDs... } jooki { Jooki RFIDs... } ksx6924 { KS X 6924 (T-Money, Snapper+) RFIDs } legic { LEGIC RFIDs... } lto { LTO Cartridge Memory RFIDs... } mf { MIFARE RFIDs... } mfp { MIFARE Plus RFIDs... } mfu { MIFARE Ultralight RFIDs... } mfdes { MIFARE Desfire RFIDs... } ntag424 { NXP NTAG 4242 DNA RFIDs... } seos { SEOS RFIDs... } st25ta { ST25TA RFIDs... } tesla { TESLA Cards... } texkom { Texkom RFIDs... } thinfilm { Thinfilm RFIDs... } topaz { TOPAZ (NFC Type 1) RFIDs... } vas { Apple Value Added Service... } waveshare { Waveshare NFC ePaper... } xerox { Fuji/Xerox cartridge RFIDs... } ----------- --------------------- General --------------------- help This help list List protocol data in trace buffer search Search for known HF tags --------------------------------------------------------------------------------------- hf list available offline: yes Alias of `trace list -t raw` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
+            "description": "-------- ----------------------- High Frequency ----------------------- 14a { ISO14443A RFIDs... } 14b { ISO14443B RFIDs... } 15 { ISO15693 RFIDs... } cipurse { Cipurse transport Cards... } epa { German Identification Card... } emrtd { Machine Readable Travel Document... } felica { ISO18092 / FeliCa RFIDs... } fido { FIDO and FIDO2 authenticators... } fudan { Fudan RFIDs... } gallagher { Gallagher DESFire RFIDs... } iclass { ICLASS RFIDs... } ict { ICT MFC/DESfire RFIDs... } jooki { Jooki RFIDs... } ksx6924 { KS X 6924 (T-Money, Snapper+) RFIDs } legic { LEGIC RFIDs... } lto { LTO Cartridge Memory RFIDs... } mf { MIFARE RFIDs... } mfp { MIFARE Plus RFIDs... } mfu { MIFARE Ultralight RFIDs... } mfdes { MIFARE Desfire RFIDs... } ntag424 { NXP NTAG 4242 DNA RFIDs... } saflok { Saflok MFC RFIDs... } seos { SEOS RFIDs... } st25ta { ST25TA RFIDs... } tesla { TESLA Cards... } texkom { Texkom RFIDs... } thinfilm { Thinfilm RFIDs... } topaz { TOPAZ (NFC Type 1) RFIDs... } vas { Apple Value Added Service... } waveshare { Waveshare NFC ePaper... } xerox { Fuji/Xerox cartridge RFIDs... } ----------- --------------------- General --------------------- help This help list List protocol data in trace buffer search Search for known HF tags --------------------------------------------------------------------------------------- hf list available offline: yes Alias of `trace list -t raw` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
             "notes": [
                 "hf list --frame -> show frame delay times",
                 "hf list -1 -> use trace buffer"
@@ -4451,23 +4474,6 @@
             ],
             "usage": "hf mf autopwn [-hablv] [-k <hex>]... [-s <dec>] [-f <fn>] [--suffix <txt>] [--slow] [--mem] [--ns] [--mini] [--1k] [--2k] [--4k] [--in] [--im] [--is] [--ia] [--i2] [--i5]"
         },
-        "hf mf bambukeys": {
-            "command": "hf mf bambukeys",
-            "description": "Generate keys for a Bambu Lab filament tag",
-            "notes": [
-                "hf mf bambukeys -r",
-                "hf mf bambukeys -r -d",
-                "hf mf bambukeys -u 11223344"
-            ],
-            "offline": true,
-            "options": [
-                "-h, --help This help",
-                "-u, --uid <hex> UID (4 hex bytes)",
-                "-r Read UID from tag",
-                "-d Dump keys to file"
-            ],
-            "usage": "hf mf bambukeys [-hrd] [-u <hex>]"
-        },
         "hf mf brute": {
             "command": "hf mf brute",
             "description": "This is a smart bruteforce, exploiting common patterns, bugs and bad designs in key generators.",
@@ -5202,7 +5208,7 @@
         },
         "hf mf help": {
             "command": "hf mf help",
-            "description": "help This help list List MIFARE history hardnested Nested attack for hardened MIFARE Classic cards decrypt Decrypt Crypto1 data from sniff or trace bambukeys Generate key table for Bambu Lab filament tag acl Decode and print MIFARE Classic access rights bytes mad Checks and prints MAD value Value blocks view Display content from tag dump file ginfo Info about configuration of the card gdmparsecfg Parse config block to card --------------------------------------------------------------------------------------- hf mf list available offline: yes Alias of `trace list -t mf -c` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
+            "description": "help This help list List MIFARE history hardnested Nested attack for hardened MIFARE Classic cards decrypt Decrypt Crypto1 data from sniff or trace keygen Generate key table for some known KDFs acl Decode and print MIFARE Classic access rights bytes mad Checks and prints MAD value Value blocks view Display content from tag dump file ginfo Info about configuration of the card gdmparsecfg Parse config block to card --------------------------------------------------------------------------------------- hf mf list available offline: yes Alias of `trace list -t mf -c` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
             "notes": [
                 "hf mf list --frame -> show frame delay times",
                 "hf mf list -1 -> use trace buffer"
@@ -5280,6 +5286,25 @@
             ],
             "usage": "hf mf isen [-hab] [--blk <dec>] [-c <dec>] [-k <hex>] [--blk2 <dec>] [--a2] [--b2] [--c2 <dec>] [--key2 <hex>] [-n <dec>] [--reset] [--hardreset] [--addread] [--addauth] [--incblk2] [--corruptnrar] [--corruptnrarparity] FM11RF08S specific options: [--collect_fm11rf08s] [--collect_fm11rf08s_with_data] [--collect_fm11rf08s_without_backdoor] [-f <fn>]"
         },
+        "hf mf keygen": {
+            "command": "hf mf keygen",
+            "description": "Generate key table for some known KDFs Available KDFs: 0 - Saflok / Maid 1 - MIZIP 2 - Disney Infinity 3 - Skylanders 4 - Bambu Lab Filament Spool 5 - Snapmaker Filament Spool",
+            "notes": [
+                "hf mf keygen -r -k 0",
+                "hf mf keygen -r -d -k 0",
+                "hf mf keygen -u 11223344 -k 0",
+                "hf mf keygen -u 11223344 -k 1"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "-u, --uid <hex> UID 4/7 hex bytes",
+                "-r Read UID from tag",
+                "-d Dump keys to file",
+                "-k, --kdf <dec> KDF algorithm"
+            ],
+            "usage": "hf mf keygen [-hrd] [-u <hex>] [-k <dec>]"
+        },
         "hf mf mad": {
             "command": "hf mf mad",
             "description": "Checks and prints MIFARE Application Directory (MAD)",
@@ -5340,8 +5365,8 @@
             "notes": [
                 "hf mf ndefread -> shows NDEF parsed data",
                 "hf mf ndefread -vv -> shows NDEF parsed and raw data",
-                "hf mf ndefread --aid e103 -k ffffffffffff -b -> shows NDEF data with custom AID, key and with key B",
-                "hf mf ndefread -f myfilename -> save raw NDEF to file"
+                "hf mf ndefread -f myfilename -> save raw NDEF to file",
+                "hf mf ndefread --aid e103 -k ffffffffffff -b -> shows NDEF data with custom AID, key and with key B"
             ],
             "offline": false,
             "options": [
@@ -5350,9 +5375,10 @@
                 "--aid <aid> replace default aid for NDEF",
                 "-k, --key <key> replace default key for NDEF",
                 "-b, --keyb use key B for access sectors (by default: key A)",
-                "-f, --file <fn> save raw NDEF to file"
+                "-f, --file <fn> save raw NDEF to file",
+                "--override override failed crc check"
             ],
-            "usage": "hf mf ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>]"
+            "usage": "hf mf ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>] [--override]"
         },
         "hf mf ndefwrite": {
             "command": "hf mf ndefwrite",
@@ -5676,7 +5702,8 @@
                 "hf mfdes auth -n 0 -t des -k 0000000000000000 --kdf none -> select PICC level and authenticate with key num=0, key type=des, key=00..00 and key derivation = none",
                 "hf mfdes auth -n 0 -t aes -k 00000000000000000000000000000000 -> select PICC level and authenticate with key num=0, key type=aes, key=00..00 and key derivation = none",
                 "hf mfdes auth -n 0 -t des -k 0000000000000000 --save -> select PICC level and authenticate and in case of successful authentication - save channel parameters to defaults",
-                "hf mfdes auth --aid 123456 -> select application 123456 and authenticate via parameters from `default` command"
+                "hf mfdes auth --aid 123456 -> select application 123456 and authenticate via parameters from `default` command",
+                "hf mfdes auth --dfname D2760000850100 -n 0 -t aes -k 00000000000000000000000000000000 -> select DF by name and authenticate"
             ],
             "offline": false,
             "options": [
@@ -5693,9 +5720,10 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID of application for some parameters (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "--save saves channels parameters to defaults if authentication succeeds"
             ],
-            "usage": "hf mfdes auth [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--save]"
+            "usage": "hf mfdes auth [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [--save]"
         },
         "hf mfdes bruteaid": {
             "command": "hf mfdes bruteaid",
@@ -6186,10 +6214,11 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian).",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "-f, --file <fn> Filename of dictionary",
                 "--save Save found key and parameters to defaults"
             ],
-            "usage": "hf mfdes detect [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [-f <fn>] [--save]"
+            "usage": "hf mfdes detect [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [-f <fn>] [--save]"
         },
         "hf mfdes dump": {
             "command": "hf mfdes dump",
@@ -6212,10 +6241,11 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "-l, --length <hex> Maximum length for read data files (3 hex bytes, big endian)",
                 "--no-auth Execute without authentication"
             ],
-            "usage": "hf mfdes dump [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [-l <hex>] [--no-auth]"
+            "usage": "hf mfdes dump [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [-l <hex>] [--no-auth]"
         },
         "hf mfdes formatpicc": {
             "command": "hf mfdes formatpicc",
@@ -6259,9 +6289,10 @@
                 "-m, --cmode <plain|mac|encrypt> Communicaton mode",
                 "-c, --ccset <native|niso|iso> Communicaton command set",
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
-                "--no-auth Execute without authentication"
+                "--no-auth Execute without authentication",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)"
             ],
-            "usage": "hf mfdes getfreemem [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--no-auth]"
+            "usage": "hf mfdes getfreemem [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--no-auth] [--dfname <hex>]"
         },
         "hf mfdes getaids": {
             "command": "hf mfdes getaids",
@@ -6314,7 +6345,8 @@
             "description": "Get File IDs list from card. Master key needs to be provided or flag --no-auth set.",
             "notes": [
                 "hf mfdes getfileids --aid 123456 -> execute with defaults from `default` command",
-                "hf mfdes getfileids -n 0 -t des -k 0000000000000000 --kdf none --aid 123456 -> execute with default factory setup"
+                "hf mfdes getfileids -n 0 -t des -k 0000000000000000 --kdf none --aid 123456 -> execute with default factory setup",
+                "hf mfdes getfileids --dfname D2760000850100 -> select DF by name and get file IDs"
             ],
             "offline": false,
             "options": [
@@ -6331,9 +6363,10 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian).",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "--no-auth Execute without authentication"
             ],
-            "usage": "hf mfdes getfileids [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--no-auth]"
+            "usage": "hf mfdes getfileids [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [--no-auth]"
         },
         "hf mfdes getfileisoids": {
             "command": "hf mfdes getfileisoids",
@@ -6342,7 +6375,8 @@
                 "hf mfdes getfileisoids --aid 123456 -> execute with defaults from `default` command",
                 "hf mfdes getfileisoids -n 0 -t des -k 0000000000000000 --kdf none --aid 123456 -> execute with default factory setup",
                 "hf mfdes getfileisoids --isoid df01 -> get iso file ids from Desfire Light with factory card settings",
-                "hf mfdes getfileisoids --isoid df01 --schann lrp -t aes -> get iso file ids from Desfire Light via lrp channel with default key authentication"
+                "hf mfdes getfileisoids --isoid df01 --schann lrp -t aes -> get iso file ids from Desfire Light via lrp channel with default key authentication",
+                "hf mfdes getfileisoids --dfname D2760000850100 -> select DF by name and get file ISO IDs"
             ],
             "offline": false,
             "options": [
@@ -6359,9 +6393,10 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian).",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "--no-auth Execute without authentication"
             ],
-            "usage": "hf mfdes getfileisoids [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--no-auth]"
+            "usage": "hf mfdes getfileisoids [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [--no-auth]"
         },
         "hf mfdes getfilesettings": {
             "command": "hf mfdes getfilesettings",
@@ -6369,7 +6404,8 @@
             "notes": [
                 "hf mfdes getfilesettings --aid 123456 --fid 01 -> execute with defaults from `default` command",
                 "hf mfdes getfilesettings --isoid df01 --fid 00 --no-auth -> get file settings with select by iso id",
-                "hf mfdes getfilesettings -n 0 -t des -k 0000000000000000 --kdf none --aid 123456 --fid 01 -> execute with default factory setup"
+                "hf mfdes getfilesettings -n 0 -t des -k 0000000000000000 --kdf none --aid 123456 --fid 01 -> execute with default factory setup",
+                "hf mfdes getfilesettings --dfname D2760000850100 --fid 01 -> select DF by name and get file settings"
             ],
             "offline": false,
             "options": [
@@ -6386,17 +6422,19 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "--fid <hex> File ID (1 hex byte). (def: 1)",
                 "--no-auth Execute without authentication"
             ],
-            "usage": "hf mfdes getfilesettings [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--fid <hex>] [--no-auth]"
+            "usage": "hf mfdes getfilesettings [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [--fid <hex>] [--no-auth]"
         },
         "hf mfdes getkeysettings": {
             "command": "hf mfdes getkeysettings",
             "description": "Get key settings for card level or application level.",
             "notes": [
                 "hf mfdes getkeysettings -> get picc key settings with default key/channel setup",
-                "hf mfdes getkeysettings --aid 123456 -> get app 123456 key settings with default key/channel setup"
+                "hf mfdes getkeysettings --aid 123456 -> get app 123456 key settings with default key/channel setup",
+                "hf mfdes getkeysettings --dfname D2760000850100 -> select DF by name and get key settings"
             ],
             "offline": false,
             "options": [
@@ -6411,9 +6449,10 @@
                 "-m, --cmode <plain|mac|encrypt> Communicaton mode",
                 "-c, --ccset <native|niso|iso> Communicaton command set",
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
-                "--aid <hex> Application ID (3 hex bytes, big endian)"
+                "--aid <hex> Application ID (3 hex bytes, big endian)",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)"
             ],
-            "usage": "hf mfdes getkeysettings [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>]"
+            "usage": "hf mfdes getkeysettings [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--dfname <hex>]"
         },
         "hf mfdes getkeyversions": {
             "command": "hf mfdes getkeyversions",
@@ -6422,7 +6461,8 @@
                 "--keynum parameter: App level: key number. PICC level: 00..0d - keys count, 21..23 vc keys, default 0x00.",
                 "hf mfdes getkeyversions --keynum 00 -> get picc master key version with default key/channel setup",
                 "hf mfdes getkeyversions --aid 123456 --keynum 0d -> get app 123456 all key versions with default key/channel setup",
-                "hf mfdes getkeyversions --aid 123456 --keynum 0d --no-auth -> get key version without authentication"
+                "hf mfdes getkeyversions --aid 123456 --keynum 0d --no-auth -> get key version without authentication",
+                "hf mfdes getkeyversions --dfname D2760000850100 --keynum 00 -> select DF by name and get key versions"
             ],
             "offline": false,
             "options": [
@@ -6439,18 +6479,20 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian).",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "--keynum <hex> Key number/count (1 hex byte). (def: 0x00)",
                 "--keyset <hex> Keyset number (1 hex byte)",
                 "--no-auth Execute without authentication"
             ],
-            "usage": "hf mfdes getkeyversions [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--keynum <hex>] [--keyset <hex>] [--no-auth]"
+            "usage": "hf mfdes getkeyversions [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [--keynum <hex>] [--keyset <hex>] [--no-auth]"
         },
         "hf mfdes getuid": {
             "command": "hf mfdes getuid",
             "description": "Get UID from card. Get the real UID if the random UID bit is on and get the same UID as in anticollision if not. Any card's key needs to be provided.",
             "notes": [
                 "hf mfdes getuid -> execute with default factory setup",
-                "hf mfdes getuid --isoid df01 -t aes --schan lrp -> for desfire lights default settings"
+                "hf mfdes getuid --isoid df01 -t aes --schan lrp -> for desfire lights default settings",
+                "hf mfdes getuid --dfname D2760000850100 -> select DF by name and get UID"
             ],
             "offline": false,
             "options": [
@@ -6466,9 +6508,10 @@
                 "-c, --ccset <native|niso|iso> Communicaton command set",
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
-                "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)"
+                "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)"
             ],
-            "usage": "hf mfdes getuid [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>]"
+            "usage": "hf mfdes getuid [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>]"
         },
         "hf mfdes help": {
             "command": "hf mfdes help",
@@ -6508,7 +6551,8 @@
             "description": "Show application list. Master key needs to be provided or flag --no-auth set (depend on cards settings).",
             "notes": [
                 "hf mfdes lsapp -> show application list with defaults from `default` command",
-                "hf mfdes lsapp --files -> show application list and show each file type/settings/etc"
+                "hf mfdes lsapp --files -> show application list and show each file type/settings/etc",
+                "hf mfdes lsapp --dfname D2760000850100 -> list apps after selecting DF by name"
             ],
             "offline": false,
             "options": [
@@ -6525,16 +6569,18 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--no-auth Execute without authentication",
                 "--no-deep not to check authentication commands that avail for any application",
-                "--files scan files and print file settings"
+                "--files scan files and print file settings",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)"
             ],
-            "usage": "hf mfdes lsapp [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--no-auth] [--no-deep] [--files]"
+            "usage": "hf mfdes lsapp [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--no-auth] [--no-deep] [--files] [--dfname <hex>]"
         },
         "hf mfdes lsfiles": {
             "command": "hf mfdes lsfiles",
             "description": "This commands List files inside application AID / ISOID. Master key needs to be provided or flag --no-auth set (depend on cards settings).",
             "notes": [
                 "hf mfdes lsfiles --aid 123456 -> AID 123456, list files using `default` command creds",
-                "hf mfdes lsfiles --isoid df01 --no-auth -> list files for DESFire light"
+                "hf mfdes lsfiles --isoid df01 --no-auth -> list files for DESFire light",
+                "hf mfdes lsfiles --dfname D2760000850100 -> select DF by name and list files"
             ],
             "offline": false,
             "options": [
@@ -6551,9 +6597,10 @@
                 "--schann <d40|ev1|ev2|lrp> Secure channel",
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)",
+                "--dfname <hex> Application ISO DF Name (5-16 hex bytes, big endian)",
                 "--no-auth Execute without authentication"
             ],
-            "usage": "hf mfdes lsfiles [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--no-auth]"
+            "usage": "hf mfdes lsfiles [-hav] [-n <dec>] [-t <DES|2TDEA|3TDEA|AES>] [-k <hex>] [--kdf <none|AN10922|gallagher>] [-i <hex>] [-m <plain|mac|encrypt>] [-c <native|niso|iso>] [--schann <d40|ev1|ev2|lrp>] [--aid <hex>] [--isoid <hex>] [--dfname <hex>] [--no-auth]"
         },
         "hf mfdes mad": {
             "command": "hf mfdes mad",
@@ -6740,7 +6787,7 @@
                 "--aid <hex> Application ID (3 hex bytes, big endian)",
                 "--isoid <hex> Application ISO ID (ISO DF ID) (2 hex bytes, big endian)",
                 "--fid <hex> File ID (1 hex byte)",
-                "-o, --op <get/credit/limcredit/debit/clear> Operation: get(default)/credit/limcredit(limited credit)/debit/clear. Operation clear: get-getopt-debit to min value",
+                "-o, --op <get/credit/limcredit/debit/clear> Operation: get(default)/credit/limcredit(limited credit)/debit/clear. Additional operation clear: get-getopt-debit to min value",
                 "-d, --data <hex> Value for operation (HEX 4 bytes)",
                 "--no-auth Execute without authentication"
             ],
@@ -6753,7 +6800,7 @@
                 "In the mode with CommitReaderID to decode previous reader id command needs to read transaction counter via dump/read command and specify --trkey",
                 "",
                 "hf mfdes write --aid 123456 --fid 01 -d 01020304 -> AID 123456, file=01, offset=0, get file type from card. use default channel settings from `default` command",
-                "hf mfdes write --aid 123456 --fid 01 --type data -d 01020304 --0ffset 000100 -> write data to std file with offset 0x100",
+                "hf mfdes write --aid 123456 --fid 01 --type data -d 01020304 --offset 000100 -> write data to std file with offset 0x100",
                 "hf mfdes write --aid 123456 --fid 01 --type data -d 01020304 --commit -> write data to backup file with commit",
                 "hf mfdes write --aid 123456 --fid 01 --type value -d 00000001 -> increment value file",
                 "hf mfdes write --aid 123456 --fid 01 --type value -d 00000001 --debit -> decrement value file",
@@ -6976,9 +7023,10 @@
                 "-k, --key <hex> Key for printing sectors",
                 "-b, --keyb Use key B for access printing sectors (def: key A)",
                 "--be (optional: BigEndian)",
-                "--dch Decode Card Holder information"
+                "--dch Decode Card Holder information",
+                "--override override failed crc check"
             ],
-            "usage": "hf mfp mad [-hvb] [--aid <hex>] [-k <hex>] [--be] [--dch]"
+            "usage": "hf mfp mad [-hvb] [--aid <hex>] [-k <hex>] [--be] [--dch] [--override]"
         },
         "hf mfp ndefformat": {
             "command": "hf mfp ndefformat",
@@ -7000,8 +7048,8 @@
             "notes": [
                 "hf mfp ndefread",
                 "hf mfp ndefread -vv -> shows NDEF parsed and raw data",
-                "hf mfp ndefread --aid e103 -k d3f7d3f7d3f7d3f7d3f7d3f7d3f7d3f7 -> shows NDEF data with custom AID and key",
-                "hf mfp ndefread -f myfilename -> save raw NDEF to file"
+                "hf mfp ndefread -f myfilename -> save raw NDEF to file",
+                "hf mfp ndefread --aid e103 -k d3f7d3f7d3f7d3f7d3f7d3f7d3f7d3f7 -> shows NDEF data with custom AID and key"
             ],
             "offline": false,
             "options": [
@@ -7010,9 +7058,10 @@
                 "--aid <aid> replace default aid for NDEF",
                 "-k, --key <key> replace default key for NDEF",
                 "-b, --keyb use key B for access sectors (by default: key A)",
-                "-f, --file <fn> save raw NDEF to file"
+                "-f, --file <fn> save raw NDEF to file",
+                "--override override failed crc check"
             ],
-            "usage": "hf mfp ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>]"
+            "usage": "hf mfp ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>] [--override]"
         },
         "hf mfp ndefwrite": {
             "command": "hf mfp ndefwrite",
@@ -7124,16 +7173,19 @@
             "description": "Tests AES key on Mifare Ultralight AES tags. If no key is specified, null key will be tried. Key index 0... DataProtKey (default) Key index 1... UIDRetrKey Key index 2... OriginalityKey",
             "notes": [
                 "hf mfu aesauth",
-                "hf mfu aesauth --key <16 hex bytes> --idx <0..2>"
+                "hf mfu aesauth --key <16 hex bytes> --idx <0..2>",
+                "hf mfu aesauth --key <16 hex bytes> --idx <0..2> --schann"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
                 "--key <hex> AES key (16 hex bytes)",
                 "-i, --idx <0..2> Key index (def: 0)",
-                "-k Keep field on (only if a key is provided)"
+                "-l Swap entered key's endianness",
+                "-k Keep field on (only if a key is provided)",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu aesauth [-hk] [--key <hex>] [-i <0..2>]"
+            "usage": "hf mfu aesauth [-hlk] [--key <hex>] [-i <0..2>] [--schann]"
         },
         "hf mfu amiibo": {
             "command": "hf mfu amiibo",
@@ -7171,7 +7223,7 @@
         },
         "hf mfu dump": {
             "command": "hf mfu dump",
-            "description": "Dump MIFARE Ultralight/NTAG tag to files (bin/json) It autodetects card type.Supports: Ultralight, Ultralight-C, Ultralight EV1 NTAG 203, NTAG 210, NTAG 212, NTAG 213, NTAG 215, NTAG 216",
+            "description": "Dump MIFARE Ultralight/NTAG tag to files (bin/json) It autodetects card type.Supports: Ultralight, Ultralight C, Ultralight AES, Ultralight EV1 NTAG 203, NTAG 210, NTAG 212, NTAG 213, NTAG 215, NTAG 216",
             "notes": [
                 "hf mfu dump -f myfile",
                 "hf mfu dump -k AABBCCDD -> dump whole tag using pwd AABBCCDD",
@@ -7183,14 +7235,15 @@
             "options": [
                 "-h, --help This help",
                 "-f, --file <fn> Specify a filename for dump file",
-                "-k, --key <hex> Key for authentication (UL-C 16 bytes, EV1/NTAG 4 bytes)",
+                "-k, --key <hex> Key for authentication (UL-C/UL-AES 16 bytes, EV1/NTAG 4 bytes)",
                 "-l Swap entered key's endianness",
                 "-p, --page <dec> Manually set start page number to start from",
                 "-q, --qty <dec> Manually set number of pages to dump",
                 "--ns no save to file",
-                "-z, --dense dense dump output style"
+                "-z, --dense dense dump output style",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu dump [-hlz] [-f <fn>] [-k <hex>] [-p <dec>] [-q <dec>] [--ns]"
+            "usage": "hf mfu dump [-hlz] [-f <fn>] [-k <hex>] [-p <dec>] [-q <dec>] [--ns] [--schann]"
         },
         "hf mfu eload": {
             "command": "hf mfu eload",
@@ -7289,9 +7342,10 @@
                 "-h, --help This help",
                 "-k, --key <hex> Authentication key (UL-C 16 bytes, EV1/NTAG 4 bytes)",
                 "-l Swap entered key's endianness",
-                "--force override `hw dbg` settings"
+                "--force override `hw dbg` settings",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu info [-hl] [-k <hex>] [--force]"
+            "usage": "hf mfu info [-hl] [-k <hex>] [--force] [--schann]"
         },
         "hf mfu keygen": {
             "command": "hf mfu keygen",
@@ -7322,9 +7376,10 @@
                 "-h, --help This help",
                 "-l Swap entered key's endianness",
                 "-f, --file <fn> Save raw NDEF to file",
-                "-v, --verbose Verbose output"
+                "-v, --verbose Verbose output",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu ndefread [-hlv] [-k Replace default key for NDEF] [-f <fn>]"
+            "usage": "hf mfu ndefread [-hlv] [-k Replace default key for NDEF] [-f <fn>] [--schann]"
         },
         "hf mfu otptear": {
             "command": "hf mfu otptear",
@@ -7372,17 +7427,19 @@
             "notes": [
                 "hf mfu rdbl -b 0",
                 "hf mfu rdbl -b 0 -k AABBCCDD",
-                "hf mfu rdbl -b 0 --key 00112233445566778899AABBCCDDEEFF"
+                "hf mfu rdbl -b 0 --key 00112233445566778899AABBCCDDEEFF",
+                "hf mfu rdbl -b 0 --key 00112233445566778899AABBCCDDEEFF --schann"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-k, --key <hex> Authentication key (UL-C 16 bytes, EV1/NTAG 4 bytes)",
+                "-k, --key <hex> Authentication key (UL-C/UL-AES 16 bytes, EV1/NTAG 4 bytes)",
                 "-l Swap entered key's endianness",
                 "-b, --block <dec> Block number to read",
-                "--force Force operation even if address is out of range"
+                "--force Force operation even if address is out of range",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu rdbl [-hl] [-k <hex>] -b <dec> [--force]"
+            "usage": "hf mfu rdbl [-hl] [-k <hex>] -b <dec> [--force] [--schann]"
         },
         "hf mfu restore": {
             "command": "hf mfu restore",
@@ -7402,22 +7459,26 @@
                 "-e enable special write version/signature -MAGIC NTAG 21* ONLY-",
                 "-r use password found in dumpfile to configure tag. Requires '-e' parameter to work",
                 "-v, --verbose verbose output",
-                "-z, --dense dense dump output style"
+                "-z, --dense dense dump output style",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu restore [-hlservz] -f <fn> [-k <hex>]"
+            "usage": "hf mfu restore [-hlservz] -f <fn> [-k <hex>] [--schann]"
         },
-        "hf mfu setpwd": {
-            "command": "hf mfu setpwd",
-            "description": "Set the 3DES key on MIFARE Ultralight-C tag.",
+        "hf mfu setkey": {
+            "command": "hf mfu setkey",
+            "description": "Set the 3DES key on MIFARE Ultralight C tag and the AES keys on Ultralight AES. Note: AUTH0 must allow unauthenticated writes to the key blocks UL-AES: New Key index 0... DataProtKey (default) New Key index 1... UIDRetrKey",
             "notes": [
-                "hf mfu setpwd --key 000102030405060708090a0b0c0d0e0f"
+                "hf mfu setkey --key 49454D4B41455242214E4143554F5946",
+                "hf mfu setkey --key <16 hex bytes> --idx <0..1>"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-k, --key <hex> New key (16 hex bytes)"
+                "-k, --key <hex> New key (16 hex bytes)",
+                "-i, --idx <0..1> New key index (def: 0), only for UL-AES",
+                "-l Swap entered keys' endianness"
             ],
-            "usage": "hf mfu setpwd [-h] [-k <hex>]"
+            "usage": "hf mfu setkey [-hl] [-k <hex>] [-i <0..1>]"
         },
         "hf mfu setuid": {
             "command": "hf mfu setuid",
@@ -7434,24 +7495,25 @@
         },
         "hf mfu sim": {
             "command": "hf mfu sim",
-            "description": "Simulate MIFARE Ultralight family type based upon ISO/IEC 14443 type A tag with 4,7 or 10 byte UID from emulator memory. See `hf mfu eload` first. The UID from emulator memory will be used if not specified. See `hf 14a sim -h` to see available types. You want 2, 7 or 13 usually.",
+            "description": "Simulate MIFARE Ultralight family type based upon ISO/IEC 14443 type A tag with 4,7 or 10 byte UID from emulator memory. See `hf mfu eload` first. The UID from emulator memory will be used if not specified. See `hf 14a sim -h` to see available types. You want 2, 7, 13 or 14 usually.",
             "notes": [
                 "hf mfu sim -t 2 --uid 11223344556677 -> MIFARE Ultralight",
                 "hf mfu sim -t 7 --uid 11223344556677 -n 5 -> MFU EV1 / NTAG 215 Amiibo",
                 "hf mfu sim -t 7 -> MFU EV1 / NTAG 215 Amiibo",
-                "hf mfu sim -t 13 -> MIFARE Ultralight-C"
+                "hf mfu sim -t 13 -> MIFARE Ultralight C",
+                "hf mfu sim -t 14 -> MIFARE Ultralight AES"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-t, --type <1..13> Simulation type to use",
+                "-t, --type <1..14> Simulation type to use",
                 "-u, --uid <hex> <4|7|10> hex bytes UID",
                 "-n, --num <dec> Exit simulation after <numreads> blocks. 0 = infinite",
                 "-v, --verbose Verbose output",
-                "--c1 UL-C Auth - all zero handshake part 1",
-                "--c2 UL-C Auth - all zero handshake part 2"
+                "--z1 ULC/ULAES Auth - all zero handshake part 1",
+                "--z2 ULC/ULAES Auth - all zero handshake part 2"
             ],
-            "usage": "hf mfu sim [-hv] -t <1..13> [-u <hex>] [-n <dec>] [--c1] [--c2]"
+            "usage": "hf mfu sim [-hv] -t <1..14> [-u <hex>] [-n <dec>] [--z1] [--z2]"
         },
         "hf mfu tamper": {
             "command": "hf mfu tamper",
@@ -7489,18 +7551,20 @@
         },
         "hf mfu wipe": {
             "command": "hf mfu wipe",
-            "description": "Wipe card to zeros. It will ignore block0,1,2,3 you will need to call it with password in order to wipe the config and sett default pwd/pack Abort by pressing a key New password.... FFFFFFFF New 3-DES key... 49454D4B41455242214E4143554F5946",
+            "description": "Wipe card to zeros. It will ignore block0,1,2,3 you will need to call it with password in order to wipe the config and sett default pwd/pack Abort by pressing a key New password.... FFFFFFFF New 3-DES key... 49454D4B41455242214E4143554F5946 New AES keys... 00000000000000000000000000000000",
             "notes": [
                 "hf mfu wipe",
-                "hf mfu wipe -k 49454D4B41455242214E4143554F5946"
+                "hf mfu wipe -k 49454D4B41455242214E4143554F5946",
+                "hf mfu wipe -k 49454D4B41455242214E4143554F5946 --schann"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
                 "-k, --key <hex> Key for authentication (UL-C 16 bytes, EV1/NTAG 4 bytes)",
-                "-l Swap entered key's endianness"
+                "-l Swap entered key's endianness",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu wipe [-hl] [-k <hex>]"
+            "usage": "hf mfu wipe [-hl] [-k <hex>] [--schann]"
         },
         "hf mfu wrbl": {
             "command": "hf mfu wrbl",
@@ -7508,18 +7572,20 @@
             "notes": [
                 "hf mfu wrbl -b 0 -d 01234567",
                 "hf mfu wrbl -b 0 -d 01234567 -k AABBCCDD",
-                "hf mfu wrbl -b 0 -d 01234567 -k 00112233445566778899AABBCCDDEEFF"
+                "hf mfu wrbl -b 0 -d 01234567 -k 00112233445566778899AABBCCDDEEFF",
+                "hf mfu wrbl -b 0 -d 01234567 -k 00112233445566778899AABBCCDDEEFF --schann"
             ],
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-k, --key <hex> Authentication key (UL-C 16 bytes, EV1/NTAG 4 bytes)",
+                "-k, --key <hex> Authentication key (UL-C/UL-AES 16 bytes, EV1/NTAG 4 bytes)",
                 "-l Swap entered key's endianness",
                 "-b, --block <dec> Block number to write",
                 "-d, --data <hex> Block data (4 or 16 hex bytes, 16 hex bytes will do a compatibility write)",
-                "--force Force operation even if address is out of range"
+                "--force Force operation even if address is out of range",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu wrbl [-hl] [-k <hex>] -b <dec> -d <hex> [--force]"
+            "usage": "hf mfu wrbl [-hl] [-k <hex>] -b <dec> -d <hex> [--force] [--schann]"
         },
         "hf ntag424 auth": {
             "command": "hf ntag424 auth",
@@ -7671,6 +7737,156 @@
             ],
             "usage": "hf plot [-h]"
         },
+        "hf saflok cksum": {
+            "command": "hf saflok cksum",
+            "description": "Generate Saflok checksum and append to block",
+            "notes": [
+                "hf saflok cksum -d <16 byte hex>"
+            ],
+            "offline": false,
+            "options": [
+                "-h, --help This help",
+                "-d data 16-byte decrypted Saflok block"
+            ],
+            "usage": "hf saflok cksum [-h] -d data"
+        },
+        "hf saflok decode": {
+            "command": "hf saflok decode",
+            "description": "Decode saflok data",
+            "notes": [
+                "hf saflok decode -d <encrypted data>"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "-d data Encrypted 17 byte card data"
+            ],
+            "usage": "hf saflok decode [-h] -d data"
+        },
+        "hf saflok decrypt": {
+            "command": "hf saflok decrypt",
+            "description": "Decrypt a 17-byte Saflok block",
+            "notes": [
+                "hf saflok decrypt -d <17 byte hex>"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "-d data 17-byte encrypted hex block"
+            ],
+            "usage": "hf saflok decrypt [-h] -d data"
+        },
+        "hf saflok encode": {
+            "command": "hf saflok encode",
+            "description": "Encode Saflok data",
+            "notes": [
+                "hf saflok encode"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "--level <decimal> Card Level",
+                "--type <decimal> Card Type",
+                "--id <decimal> Card ID",
+                "--open <decimal> Opening Bits",
+                "--lock_id <decimal> Lock ID",
+                "--pass_num <decimal> Pass Number",
+                "--seq_combo <decimal> Sequence and Combination",
+                "--deadbolt <decimal> Deadbolt Override",
+                "--days <decimal> Restricted Days",
+                "--expire <YYYY-MM-DDTHH:mm> Expire Date Offset",
+                "--created <YYYY-MM-DDTHH:mm> Card Creation Date",
+                "--prop_id <decimal> Property ID"
+            ],
+            "usage": "hf saflok encode [-h] --level <decimal> --type <decimal> --id <decimal> --open <decimal> --lock_id <decimal> --pass_num <decimal> --seq_combo <decimal> --deadbolt <decimal> --days <decimal> --expire <YYYY-MM-DDTHH:mm> --created <YYYY-MM-DDTHH:mm> --prop_id <decimal>"
+        },
+        "hf saflok encrypt": {
+            "command": "hf saflok encrypt",
+            "description": "Encrypt a 17-byte Saflok block",
+            "notes": [
+                "hf saflok encrypt -d <17 byte hex>"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "-d data 17-byte unencrypted hex block"
+            ],
+            "usage": "hf saflok encrypt [-h] -d data"
+        },
+        "hf saflok help": {
+            "command": "hf saflok help",
+            "description": "help This help encode Encode Saflok card data decode Decode Saflok card data modify Modify Saflok card data encrypt Encrypt 17-byte decrypted block decrypt Decrypt 17-byte encrypted block selftest Run self-test --------------------------------------------------------------------------------------- hf saflok read available offline: no Read Saflok card (MIFARE Classic only)",
+            "notes": [
+                "hf saflok read"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help"
+            ],
+            "usage": "hf saflok read [-h]"
+        },
+        "hf saflok interrogate": {
+            "command": "hf saflok interrogate",
+            "description": "Interrogate Saflok card",
+            "notes": [
+                "hf saflok interrogate"
+            ],
+            "offline": false,
+            "options": [
+                "-h, --help This help"
+            ],
+            "usage": "hf saflok interrogate [-h]"
+        },
+        "hf saflok modify": {
+            "command": "hf saflok modify",
+            "description": "Modify Saflok card data",
+            "notes": [
+                "hf saflok modify"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help",
+                "--level <decimal> Card Level",
+                "--type <decimal> Card Type",
+                "--id <decimal> Card ID",
+                "--open <decimal> Opening Bits",
+                "--lock_id <decimal> Lock ID",
+                "--pass_num <decimal> Pass Number",
+                "--seq_combo <decimal> Sequence and Combination",
+                "--deadbolt <decimal> Deadbolt Override",
+                "--days <decimal> Restricted Days",
+                "--expire <YYYY-MM-DDTHH:mm> Expire Date Offset",
+                "--created <YYYY-MM-DDTHH:mm> Card Creation Date",
+                "--prop_id <decimal> Property ID",
+                "-d data Encrypted 17 byte card data"
+            ],
+            "usage": "hf saflok modify [-h] [--level <decimal>] [--type <decimal>] [--id <decimal>] [--open <decimal>] [--lock_id <decimal>] [--pass_num <decimal>] [--seq_combo <decimal>] [--deadbolt <decimal>] [--days <decimal>] [--expire <YYYY-MM-DDTHH:mm>] [--created <YYYY-MM-DDTHH:mm>] [--prop_id <decimal>] -d data"
+        },
+        "hf saflok provision": {
+            "command": "hf saflok provision",
+            "description": "Provision a Saflok card",
+            "notes": [
+                "hf saflok provision -d <17-byte encrypted hex block>"
+            ],
+            "offline": false,
+            "options": [
+                "-h, --help This help",
+                "-d data 17-byte block"
+            ],
+            "usage": "hf saflok provision [-h] -d data"
+        },
+        "hf saflok selftest": {
+            "command": "hf saflok selftest",
+            "description": "Validate internal functionality of Saflok routines",
+            "notes": [
+                "hf saflok selftest"
+            ],
+            "offline": true,
+            "options": [
+                "-h, --help This help"
+            ],
+            "usage": "hf saflok selftest [-h]"
+        },
         "hf search": {
             "command": "hf search",
             "description": "Will try to find a HF read out of the unknown tag. Continues to search for all different HF protocols.",
@@ -7686,29 +7902,29 @@
         },
         "hf seos adf": {
             "command": "hf seos adf",
-            "description": "Make a GET DATA request to an Application Data File (ADF) of a SEOS Tag The ADF is meant to be read by an application You still need the valid authentication keys to read a card By default: - ADF OID : 2B0601040181E438010102011801010202 - Key Index: 0 - Tag List : 5c02ff00",
+            "description": "Make a GET DATA request to an Application Data File (ADF) of a SEOS Tag The ADF is meant to be read by an application You still need the valid authentication keys to read a card By default: - ADF OID : 2B0601040181E438010102011801010202 - Key Index: 0 - Data Tag : FF00",
             "notes": [
                 "hf seos adf",
                 "hf seos adf -o 2B0601040181E438010102011801010202",
                 "hf seos adf -o 2B0601040181E438010102011801010202 --ki 0",
-                "hf seos adf -o 2B0601040181E438010102011801010202 -c 5c02ff41"
+                "hf seos adf -o 2B0601040181E438010102011801010202 -t FF41"
             ],
-            "offline": true,
+            "offline": false,
             "options": [
                 "-h, --help This help",
-                "-c, --getdata <hex> <0-100> hex bytes for the tag list to Get Data request (Default: 5c02ff00)",
+                "-t, --tag <hex> <0-100> hex bytes for tag to read (Default: FF00)",
                 "-o, --oid <hex> <0-100> hex bytes for OID (Default: 2B0601040181E438010102011801010202)",
                 "--ki <dec> Specify key index to set key in memory"
             ],
-            "usage": "hf seos adf [-h] [-c <hex>] [-o <hex>] [--ki <dec>]"
+            "usage": "hf seos adf [-h] [-t <hex>] [-o <hex>] [--ki <dec>]"
         },
         "hf seos gdf": {
             "command": "hf seos gdf",
-            "description": "Get Global Data File (GDF) from SEOS card By default: - Key Index: 0",
+            "description": "Get Global Data File (GDF) from SEOS card By default: - Key Index: 3",
             "notes": [
-                "hf seos gdfhf seos gdf --ki 0"
+                "hf seos gdfhf seos gdf --ki 3"
             ],
-            "offline": true,
+            "offline": false,
             "options": [
                 "-h, --help This help",
                 "--ki <dec> Specify key index to set key in memory"
@@ -7717,7 +7933,7 @@
         },
         "hf seos help": {
             "command": "hf seos help",
-            "description": "----------- ----------------------- General ----------------------- help This help list List SEOS history ----------- ----------------------- Operations ----------------------- pacs Extract PACS Information from card adf Read an ADF from the card gdf Read an GDF from card ----------- ----------------------- Utils ----------------------- managekeys Manage keys to use with SEOS commands --------------------------------------------------------------------------------------- hf seos list available offline: yes Alias of `trace list -t seos -c` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
+            "description": "----------- ----------------------- General ----------------------- help This help list List SEOS history ----------- ------------------------ Utils ------------------------ managekeys Manage keys to use with SEOS commands --------------------------------------------------------------------------------------- hf seos list available offline: yes Alias of `trace list -t seos -c` with selected protocol data to annotate trace buffer You can load a trace from file (see `trace load -h`) or it be downloaded from device by default It accepts all other arguments of `trace list`. Note that some might not be relevant for this specific protocol",
             "notes": [
                 "hf seos list --frame -> show frame delay times",
                 "hf seos list -1 -> use trace buffer"
@@ -7755,6 +7971,7 @@
                 "hf seos managekeys -p",
                 "hf seos managekeys -p -v",
                 "hf seos managekeys --ki 0 --nonce 0102030405060708 -> Set nonce value at key index 0",
+                "hf seos managekeys --ki 1 --keyslot 1 -> Set keyslot value at key index 1",
                 "hf seos managekeys --load -f mykeys.bin -p -> load from file and prints keys",
                 "hf seos managekeys --save -f mykeys.bin -> saves keys to file"
             ],
@@ -7762,6 +7979,7 @@
             "options": [
                 "-h, --help This help",
                 "--ki <dec> Specify key index to set key in memory",
+                "--keyslot <hex> Keyslot value as 1 hex byte",
                 "--nonce <hex> Nonce value as 8 hex bytes",
                 "--privenc <hex> Privacy Encryption key as 16 hex bytes",
                 "--privmac <hex> Privacy MAC key as 16 hex bytes",
@@ -7774,7 +7992,7 @@
                 "-p, --print Print keys loaded into memory",
                 "-v, --verbose verbose (print all key info)"
             ],
-            "usage": "hf seos managekeys [-hpv] [--ki <dec>] [--nonce <hex>] [--privenc <hex>] [--privmac <hex>] [--read <hex>] [--write <hex>] [--admin <hex>] [-f <fn>] [--save] [--load]"
+            "usage": "hf seos managekeys [-hpv] [--ki <dec>] [--keyslot <hex>] [--nonce <hex>] [--privenc <hex>] [--privmac <hex>] [--read <hex>] [--write <hex>] [--admin <hex>] [-f <fn>] [--save] [--load]"
         },
         "hf seos pacs": {
             "command": "hf seos pacs",
@@ -7784,7 +8002,7 @@
                 "hf seos pacs --ki 1",
                 "hf seos pacs -o 2B0601040181E438010102011801010202 --ki 0"
             ],
-            "offline": true,
+            "offline": false,
             "options": [
                 "-h, --help This help",
                 "-o, --oid <hex> <0-100> hex bytes for OID (Default: 2B0601040181E438010102011801010202)",
@@ -7809,6 +8027,23 @@
                 "-d, --data <hex> DER encoded command to send to SAM"
             ],
             "usage": "hf seos sam [-hvknt] [-d <hex>]..."
+        },
+        "hf seos write": {
+            "command": "hf seos write",
+            "description": "Make a PUT DATA request to an ADF of a SEOS card By default: - ADF OID : 2B0601040181E438010102011801010202 - Key Index: 2",
+            "notes": [
+                "hf seos write -d 12345678",
+                "hf seos write --ki 1",
+                "hf seos write -o 2B0601040181E438010102011801010202 --ki 2 -d 12345678"
+            ],
+            "offline": false,
+            "options": [
+                "-h, --help This help",
+                "-o, --oid <hex> <0-100> hex bytes for OID (Default: 2B0601040181E438010102011801010202)",
+                "--ki <dec> Specify key index to set key in memory",
+                "-d, --data <hex> <0-128> hex bytes for data (Must be valid BER-TLV)"
+            ],
+            "usage": "hf seos write [-h] [-o <hex>] [--ki <dec>] [-d <hex>]"
         },
         "hf sniff": {
             "command": "hf sniff",
@@ -8598,7 +8833,8 @@
             "notes": [
                 "hw tearoff --delay 1200 -> define delay of 1200us",
                 "hw tearoff --on -> (re)activate a previously defined delay",
-                "hw tearoff --off -> deactivate a previously activated but not yet triggered hook"
+                "hw tearoff --off -> deactivate a previously activated but not yet triggered hook",
+                "hw tearoff --list -> list commands implementing tear-off hooks"
             ],
             "offline": false,
             "options": [
@@ -8606,9 +8842,11 @@
                 "--delay <dec> Delay in us before triggering tear-off, must be between 1 and 43000",
                 "--on Activate tear-off hook",
                 "--off Deactivate tear-off hook",
-                "-s, --silent less verbose output"
+                "--skip <dec> Skip N triggers before activating the hook",
+                "-s, --silent less verbose output",
+                "--list List commands implementing tear-off hooks"
             ],
-            "usage": "hw tearoff [-hs] [--delay <dec>] [--on] [--off]"
+            "usage": "hw tearoff [-hs] [--delay <dec>] [--on] [--off] [--skip <dec>] [--list]"
         },
         "hw tia": {
             "command": "hw tia",
@@ -12156,7 +12394,10 @@
             "command": "mem info",
             "description": "Collect signature and verify it from flash memory",
             "notes": [
-                "mem info"
+                "mem info",
+                "mem info -v -> print public keys",
+                "mem info -s -p pm3_generic_private_key.pem -> generate a RSA 1024 signature for your SPI ID",
+                "mem info -s -p pm3_generic_private_key.pem -w -> generate and write a RSA 1024 signature for your SPI ID"
             ],
             "offline": false,
             "options": [
@@ -12164,9 +12405,10 @@
                 "-s, --sign create a signature",
                 "-d <hex> flash memory id, 8 hex bytes",
                 "-p, --pem <fn> key in PEM format",
-                "-v, --verbose verbose output"
+                "-v, --verbose verbose output",
+                "-w, --write write signature to flash memory"
             ],
-            "usage": "mem info [-hsv] [-d <hex>] [-p <fn>]"
+            "usage": "mem info [-hsvw] [-d <hex>] [-p <fn>]"
         },
         "mem load": {
             "command": "mem load",
@@ -12371,7 +12613,7 @@
             "offline": false,
             "options": [
                 "-h, --help This help",
-                "-p <dec> 0,1,2 page memory"
+                "-p <dec> page memory"
             ],
             "usage": "mem wipe [-h] [-p <dec>]"
         },
@@ -12470,9 +12712,10 @@
                 "-h, --help This help",
                 "-d, --data <hex> NDEF data to decode",
                 "-f, --file <fn> file to load",
+                "--override override failed crc check",
                 "-v, --verbose verbose output"
             ],
-            "usage": "nfc decode [-hv] [-d <hex>] [-f <fn>]"
+            "usage": "nfc decode [-hv] [-d <hex>] [-f <fn>] [--override]"
         },
         "nfc mf cread": {
             "command": "nfc mf cread",
@@ -12480,8 +12723,8 @@
             "notes": [
                 "hf mf ndefread -> shows NDEF parsed data",
                 "hf mf ndefread -vv -> shows NDEF parsed and raw data",
-                "hf mf ndefread --aid e103 -k ffffffffffff -b -> shows NDEF data with custom AID, key and with key B",
-                "hf mf ndefread -f myfilename -> save raw NDEF to file"
+                "hf mf ndefread -f myfilename -> save raw NDEF to file",
+                "hf mf ndefread --aid e103 -k ffffffffffff -b -> shows NDEF data with custom AID, key and with key B"
             ],
             "offline": false,
             "options": [
@@ -12490,9 +12733,10 @@
                 "--aid <aid> replace default aid for NDEF",
                 "-k, --key <key> replace default key for NDEF",
                 "-b, --keyb use key B for access sectors (by default: key A)",
-                "-f, --file <fn> save raw NDEF to file"
+                "-f, --file <fn> save raw NDEF to file",
+                "--override override failed crc check"
             ],
-            "usage": "hf mf ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>]"
+            "usage": "hf mf ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>] [--override]"
         },
         "nfc mf cwrite": {
             "command": "nfc mf cwrite",
@@ -12534,8 +12778,8 @@
             "notes": [
                 "hf mfp ndefread",
                 "hf mfp ndefread -vv -> shows NDEF parsed and raw data",
-                "hf mfp ndefread --aid e103 -k d3f7d3f7d3f7d3f7d3f7d3f7d3f7d3f7 -> shows NDEF data with custom AID and key",
-                "hf mfp ndefread -f myfilename -> save raw NDEF to file"
+                "hf mfp ndefread -f myfilename -> save raw NDEF to file",
+                "hf mfp ndefread --aid e103 -k d3f7d3f7d3f7d3f7d3f7d3f7d3f7d3f7 -> shows NDEF data with custom AID and key"
             ],
             "offline": false,
             "options": [
@@ -12544,9 +12788,10 @@
                 "--aid <aid> replace default aid for NDEF",
                 "-k, --key <key> replace default key for NDEF",
                 "-b, --keyb use key B for access sectors (by default: key A)",
-                "-f, --file <fn> save raw NDEF to file"
+                "-f, --file <fn> save raw NDEF to file",
+                "--override override failed crc check"
             ],
-            "usage": "hf mfp ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>]"
+            "usage": "hf mfp ndefread [-hvb] [--aid <aid>] [-k <key>] [-f <fn>] [--override]"
         },
         "nfc type1 help": {
             "command": "nfc type1 help",
@@ -12561,9 +12806,10 @@
                 "-h, --help This help",
                 "-l Swap entered key's endianness",
                 "-f, --file <fn> Save raw NDEF to file",
-                "-v, --verbose Verbose output"
+                "-v, --verbose Verbose output",
+                "--schann use secure channel. Must have key"
             ],
-            "usage": "hf mfu ndefread [-hlv] [-k Replace default key for NDEF] [-f <fn>]"
+            "usage": "hf mfu ndefread [-hlv] [-k Replace default key for NDEF] [-f <fn>] [--schann]"
         },
         "nfc type1 read": {
             "command": "nfc type1 read",
@@ -13446,9 +13692,10 @@
                 "-h, --help This help",
                 "-r, --raw <hex> raw hex to be decoded",
                 "-b, --bin <bin> binary string to be decoded",
-                "-n, --new <hex> new padded pacs as raw hex to be decoded"
+                "-n, --new <hex> new padded pacs as raw hex to be decoded",
+                "-f, --force skip preabmle checking, brute force all possible lengths for raw hex input"
             ],
-            "usage": "wiegand decode [-h] [-r <hex>] [-b <bin>] [-n <hex>]"
+            "usage": "wiegand decode [-hf] [-r <hex>] [-b <bin>] [-n <hex>]"
         },
         "wiegand encode": {
             "command": "wiegand encode",
@@ -13483,8 +13730,8 @@
         }
     },
     "metadata": {
-        "commands_extracted": 775,
+        "commands_extracted": 787,
         "extracted_by": "PM3Help2JSON v1.00",
-        "extracted_on": "2025-08-04T17:50:35"
+        "extracted_on": "2025-12-22T03:54:40"
     }
 }

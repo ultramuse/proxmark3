@@ -74,8 +74,9 @@ HARDNESTEDLIB = $(HARDNESTEDLIBPATH)/libhardnested.a
 HARDNESTEDLIBLD =
 
 ## ID48
-ID48LIBPATH = ./deps/id48
-ID48LIBINC = -I$(ID48LIBPATH)
+## must be manually kept in sync with updates to deps/id48/CMakeLists.txt
+ID48LIBPATH = ./deps/id48/src
+ID48LIBINC = -I$(ID48LIBPATH)/../public
 ID48LIB = $(ID48LIBPATH)/libid48.a
 ID48LIBLD =
 
@@ -628,6 +629,7 @@ SRCS =  mifare/aiddesfire.c \
 		cmdflashmemspiffs.c \
 		cmdhf.c \
 		cmdhf14a.c \
+		pla.c \
 		cmdhf14b.c \
 		cmdhf15.c \
 		cmdhfcryptorf.c \
@@ -651,6 +653,7 @@ SRCS =  mifare/aiddesfire.c \
 		cmdhfmfu.c \
 		cmdhfmfp.c \
 		cmdhfntag424.c \
+        cmdhfsaflok.c \
 		cmdhfseos.c \
 		cmdhfst.c \
 		cmdhfst25ta.c \
@@ -778,6 +781,7 @@ SRCS =  mifare/aiddesfire.c \
 		scripting.c \
 		ui.c \
 		util.c \
+		qrcode/qrcode.c \
 		version_pm3.c \
 		wiegand_formats.c \
 		wiegand_formatutils.c

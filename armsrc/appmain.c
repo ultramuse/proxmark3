@@ -45,6 +45,7 @@
 #include "em4x50.h"
 #include "em4x70.h"
 #include "iclass.h"
+#include "seos.h"
 #include "legicrfsim.h"
 //#include "cryptorfsim.h"
 #include "epa.h"
@@ -67,6 +68,7 @@
 #include "sam_picopass.h"
 #include "sam_seos.h"
 #include "sam_mfc.h"
+#include "cmac_calc.h"
 
 #ifdef WITH_LCD
 #include "LCD_disabled.h"
@@ -94,12 +96,18 @@ static int button_status = BUTTON_NO_CLICK;
 static bool allow_send_wtx = false;
 uint16_t g_tearoff_delay_us = 0;
 bool g_tearoff_enabled = false;
+uint8_t g_tearoff_skip = 0;
 
 int tearoff_hook(void) {
     if (g_tearoff_enabled) {
         if (g_tearoff_delay_us == 0) {
             Dbprintf(_RED_("No tear-off delay configured!"));
             g_tearoff_enabled = false;
+            return PM3_SUCCESS; // SUCCESS = the hook didn't do anything
+        }
+        if (g_tearoff_skip > 0) {
+            Dbprintf(_GREEN_("Tear-off skipped!"));
+            g_tearoff_skip--;
             return PM3_SUCCESS; // SUCCESS = the hook didn't do anything
         }
         SpinDelayUsPrecision(g_tearoff_delay_us);
@@ -415,6 +423,9 @@ static void SendStatus(uint32_t wait) {
 #ifdef WITH_ISO14443a
     printHf14aConfig();   // HF 14a config
 #endif
+#ifdef WITH_ISO14443b
+    printHf14bConfig();   // HF 14b config
+#endif
     printConnSpeed(wait);
     DbpString(_CYAN_("Various"));
 
@@ -619,6 +630,11 @@ static void SendCapabilities(void) {
     capabilities.compiled_with_iclass = true;
 #else
     capabilities.compiled_with_iclass = false;
+#endif
+#ifdef WITH_SEOS
+    capabilities.compiled_with_seos = true;
+#else
+    capabilities.compiled_with_seos = false;
 #endif
 #ifdef WITH_NFCBARCODE
     capabilities.compiled_with_nfcbarcode = true;
@@ -882,12 +898,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_SET_TEAROFF: {
-            struct p {
-                uint16_t delay_us;
-                bool on;
-                bool off;
-            } PACKED;
-            struct p *payload = (struct p *)packet->data.asBytes;
+            tearoff_params_t *payload = (tearoff_params_t *)packet->data.asBytes;
             if (payload->on && payload->off) {
                 reply_ng(CMD_SET_TEAROFF, PM3_EINVARG, NULL, 0);
             }
@@ -902,6 +913,10 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             if (payload->delay_us > 0) {
                 g_tearoff_delay_us = payload->delay_us;
+            }
+
+            if (payload->skip > -1) {
+                g_tearoff_skip = payload->skip;
             }
             reply_ng(CMD_SET_TEAROFF, PM3_SUCCESS, NULL, 0);
             break;
@@ -1634,6 +1649,21 @@ static void PacketReceived(PacketCommandNG *packet) {
             SendRawCommand14443B(payload);
             break;
         }
+        case CMD_HF_ISO14443B_PRINT_CONFIG: {
+            printHf14bConfig();
+            break;
+        }
+        case CMD_HF_ISO14443B_GET_CONFIG: {
+            hf14b_config_t *c = getHf14bConfig();
+            reply_ng(CMD_HF_ISO14443B_GET_CONFIG, PM3_SUCCESS, (uint8_t *)c, sizeof(hf14b_config_t));
+            break;
+        }
+        case CMD_HF_ISO14443B_SET_CONFIG: {
+            hf14b_config_t c;
+            memcpy(&c, packet->data.asBytes, sizeof(hf14b_config_t));
+            setHf14bConfig(&c);
+            break;
+        }
         case CMD_HF_CRYPTORF_SIM : {
 //            simulate_crf_tag();
             break;
@@ -1749,13 +1779,13 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t uid[10];
                 uint8_t exitAfter;
                 uint8_t rats[20];
-                bool ulc_p1;
-                bool ulc_p2;
+                bool ulauth_z1;
+                bool ulauth_z2;
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
             SimulateIso14443aTag(payload->tagtype, payload->flags, payload->uid,
                                  payload->exitAfter, payload->rats, sizeof(payload->rats),
-                                 payload->ulc_p1, payload->ulc_p2);  // ## Simulate iso14443a tag - pass tag type & UID
+                                 payload->ulauth_z1, payload->ulauth_z2);  // ## Simulate iso14443a tag - pass tag type & UID
             break;
         }
         case CMD_HF_ISO14443A_SIM_AID: {
@@ -1827,8 +1857,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_HF_MIFAREU_READBL: {
-
-            MifareUReadBlock(packet->oldarg[0], packet->oldarg[1], packet->data.asBytes);
+            MifareUReadBlock((mful_readblock_t *)packet->data.asBytes);
             break;
         }
         case CMD_HF_MIFAREUC_AUTH: {
@@ -1836,21 +1865,15 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_HF_MIFAREULAES_AUTH: {
-            struct p {
-                bool turn_off_field;
-                uint8_t keyno;
-                uint8_t key[16];
-            } PACKED;
-            struct p *payload = (struct p *) packet->data.asBytes;
-            MifareUL_AES_Auth(payload->turn_off_field, payload->keyno, payload->key);
+            MifareUL_AES_Auth((mfulaes_keys_t *)packet->data.asBytes);
             break;
         }
         case CMD_HF_MIFAREU_READCARD: {
-            MifareUReadCard(packet->oldarg[0], packet->oldarg[1], packet->oldarg[2], packet->data.asBytes);
+            MifareUReadCard((mful_readblock_t *)packet->data.asBytes);
             break;
         }
-        case CMD_HF_MIFAREUC_SETPWD: {
-            MifareUSetPwd(packet->oldarg[0], packet->data.asBytes);
+        case CMD_HF_MIFAREU_SETKEY: {
+            MifareUSetKey(packet->oldarg[0], packet->data.asBytes);
             break;
         }
         case CMD_HF_MIFARE_READSC: {
@@ -1884,11 +1907,11 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_HF_MIFAREU_WRITEBL: {
-            MifareUWriteBlock(packet->oldarg[0], packet->oldarg[1], packet->data.asBytes);
+            MifareUWriteBlock((mful_writeblock_t *)packet->data.asBytes);
             break;
         }
         case CMD_HF_MIFAREU_WRITEBL_COMPAT: {
-            MifareUWriteBlockCompat(packet->oldarg[0], packet->oldarg[1], packet->data.asBytes);
+            MifareUWriteBlockCompat((mful_writeblock_t *)packet->data.asBytes);
             break;
         }
         case CMD_HF_MIFARE_ACQ_ENCRYPTED_NONCES: {
@@ -1922,10 +1945,11 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t keytype;
                 uint8_t target_block;
                 uint8_t target_keytype;
+                uint8_t force_detect_dist;
                 uint8_t key[6];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            MifareStaticNested(payload->block, payload->keytype, payload->target_block, payload->target_keytype, payload->key);
+            MifareStaticNested(payload->block, payload->keytype, payload->target_block, payload->target_keytype, payload->key, payload->force_detect_dist);
             break;
         }
         case CMD_HF_MIFARE_CHKKEYS: {
@@ -2261,6 +2285,12 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_HF_ICLASS_TEARBL: {
             iClass_TearBlock((iclass_tearblock_req_t *)packet->data.asBytes);
+            break;
+        }
+#endif
+#ifdef WITH_SEOS
+        case CMD_HF_SEOS_SIMULATE: {
+            SimulateSeos((seos_emulate_req_t *)packet->data.asBytes);
             break;
         }
 #endif
@@ -2916,20 +2946,22 @@ static void PacketReceived(PacketCommandNG *packet) {
             LED_B_ON();
             uint8_t page = packet->oldarg[0];
             uint8_t initialwipe = packet->oldarg[1];
+
             bool isok = false;
             if (initialwipe) {
                 isok = Flash_WipeMemory();
-                reply_mix(CMD_ACK, isok, 0, 0, 0, 0);
+                reply_ng(CMD_FLASHMEM_WIPE, (isok) ? PM3_SUCCESS : PM3_EFAILED, NULL, 0);
                 LED_B_OFF();
                 break;
             }
+
             if (page < spi_flash_pages64k - 1) {
                 isok = Flash_WipeMemoryPage(page);
                 // let spiffs check and update its info post flash erase
                 rdv40_spiffs_check();
             }
 
-            reply_mix(CMD_ACK, isok, 0, 0, 0, 0);
+            reply_ng(CMD_FLASHMEM_WIPE, (isok) ? PM3_SUCCESS : PM3_EFAILED, NULL, 0);
             LED_B_OFF();
             break;
         }
@@ -2950,13 +2982,15 @@ static void PacketReceived(PacketCommandNG *packet) {
             for (size_t i = 0; i < numofbytes; i += PM3_CMD_DATA_SIZE) {
                 size_t len = MIN((numofbytes - i), PM3_CMD_DATA_SIZE);
                 Flash_CheckBusy(BUSY_TIMEOUT);
-                bool isok = Flash_ReadDataCont(startidx + i, mem, len);
-                if (isok == false)
-                    Dbprintf("reading flash memory failed ::  | bytes between %d - %d", i, len);
-
+                uint16_t isok = Flash_ReadDataCont(startidx + i, mem, len);
+                if (isok == false) {
+                    Dbprintf("reading flash memory failed with bytes between %d - %d", i, len);
+                }
                 isok = reply_old(CMD_FLASHMEM_DOWNLOADED, i, len, 0, mem, len);
-                if (isok != 0)
-                    Dbprintf("transfer to client failed ::  | bytes between %d - %d", i, len);
+
+                if (isok != PM3_SUCCESS) {
+                    Dbprintf("transfer to client failed with bytes between %d - %d", i, len);
+                }
             }
             FlashStop();
 
@@ -2965,20 +2999,31 @@ static void PacketReceived(PacketCommandNG *packet) {
             LED_B_OFF();
             break;
         }
-        case CMD_FLASHMEM_INFO: {
+        case CMD_FLASHMEM_GET_SIGNATURE: {
 
             LED_B_ON();
+
             rdv40_validation_t *info = (rdv40_validation_t *)BigBuf_calloc(sizeof(rdv40_validation_t));
 
-            bool isok = Flash_ReadData(FLASH_MEM_SIGNATURE_OFFSET_P(spi_flash_pages64k), info->signature, FLASH_MEM_SIGNATURE_LEN);
+            // returns 0 when failing
+            uint16_t isok = Flash_ReadData(FLASH_MEM_SIGNATURE_OFFSET_P(spi_flash_pages64k), info->signature, FLASH_MEM_SIGNATURE_LEN);
 
-            if (FlashInit()) {
+            // re-init since command above calls FlashStop()
+            if (isok && FlashInit()) {
                 Flash_UniqueID(info->flashid);
                 FlashStop();
             }
-            reply_mix(CMD_ACK, isok, 0, 0, info, sizeof(rdv40_validation_t));
+
+            reply_ng(CMD_FLASHMEM_GET_SIGNATURE, (isok) ? PM3_SUCCESS : PM3_EFLASH, (uint8_t *)info, sizeof(rdv40_validation_t));
             BigBuf_free();
 
+            LED_B_OFF();
+            break;
+        }
+        case CMD_FLASHMEM_GET_INFO: {
+            LED_B_ON();
+            spi_flash_t *spi = flash_get_info();
+            reply_ng(CMD_FLASHMEM_GET_INFO, PM3_SUCCESS, (uint8_t *)spi, sizeof(spi_flash_t));
             LED_B_OFF();
             break;
         }
@@ -2986,15 +3031,14 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             LED_B_ON();
 
-            bool isok = false;
-            if (FlashInit()) {
-                isok = true;
+            bool isok = FlashInit();
+            if (isok) {
                 if (g_dbglevel >= DBG_DEBUG) {
                     Dbprintf("  CMD_FLASHMEM_PAGE64K 0x%02x (%d 64k pages)", spi_flash_pages64k, spi_flash_pages64k);
                 }
                 FlashStop();
             }
-            reply_mix(CMD_ACK, isok, 0, 0, &spi_flash_pages64k, sizeof(uint8_t));
+            reply_ng(CMD_FLASHMEM_PAGES64K, (isok) ? PM3_SUCCESS : PM3_EFLASH, &spi_flash_pages64k, sizeof(uint8_t));
 
             LED_B_OFF();
             break;

@@ -44,7 +44,12 @@ const ecdsa_publickey_ng_t manufacturer_public_keys[] = {
     },
     // ref: AN11350 NTAG 21x Originality Signature Validation
     {
-        PK_MFUL,    MBEDTLS_ECP_DP_SECP128R1, 33, "NXP NTAG21x (2013)",
+        PK_MFUL,    MBEDTLS_ECP_DP_SECP128R1, 33, "NXP NTAG21x",
+        "04494E1A386D3D3CFE3DC10E5DE68A499B1C202DB5B132393E89ED19FE5BE8BC61"
+    },
+    // same key used on NTAG 5
+    {
+        PK_15,    MBEDTLS_ECP_DP_SECP128R1, 33, "NXP NTAG 5 link, NTAG 5 boost",
         "04494E1A386D3D3CFE3DC10E5DE68A499B1C202DB5B132393E89ED19FE5BE8BC61"
     },
 
@@ -61,7 +66,7 @@ const ecdsa_publickey_ng_t manufacturer_public_keys[] = {
 
     // ref: AN12998 NTAG 22x DNA (StatusDetect) - Features and hints
     {
-        PK_MFUL,    MBEDTLS_ECP_DP_SECP192R1, 49, "NXP NTAG 22x DNA",
+        PK_MFULAES, MBEDTLS_ECP_DP_SECP192R1, 49, "NXP NTAG 22x DNA",
         "0485D5B9353B4FAA77581BA2AE96630C5876D6E8603308ABE9A81A0B506F52D02D04FEE6F2D365B3DEE7B9FAD9133E2976"
     },
 

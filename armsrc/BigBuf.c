@@ -377,8 +377,9 @@ void tosend_stuffbit(int b) {
         s_toSend.bit = 0;
     }
 
-    if (b)
+    if (b) {
         s_toSend.buf[s_toSend.max] |= (1 << (7 - s_toSend.bit));
+    }
 
     s_toSend.bit++;
 
@@ -391,13 +392,12 @@ dmabuf16_t *get_dma16(void) {
     if (s_dma_16.buf == NULL) {
         s_dma_16.buf = (uint16_t *)BigBuf_malloc(DMA_BUFFER_SIZE * sizeof(uint16_t));
     }
-
     return &s_dma_16;
 }
 
 dmabuf8_t *get_dma8(void) {
-    if (s_dma_8.buf == NULL)
+    if (s_dma_8.buf == NULL) {
         s_dma_8.buf = BigBuf_malloc(DMA_BUFFER_SIZE);
-
+    }
     return &s_dma_8;
 }

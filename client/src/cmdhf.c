@@ -44,6 +44,7 @@
 #include "cmdhfmfp.h"       // Mifare Plus
 #include "cmdhfmfdes.h"     // DESFIRE
 #include "cmdhfntag424.h"   // NTAG 424 DNA
+#include "cmdhfsaflok.h"    // Saflok
 #include "cmdhfseos.h"      // SEOS
 #include "cmdhfst25ta.h"    // ST25TA
 #include "cmdhftesla.h"     // Tesla
@@ -502,7 +503,7 @@ int CmdHFSniff(const char *Cmd) {
                 PrintAndLogEx(HINT, "Hint: Use `" _YELLOW_("data plot") "` to view");
                 PrintAndLogEx(HINT, "Hint: Use `" _YELLOW_("data save") "` to save");
 
-                // download bigbuf_malloc:d.
+                // download bigbuf_calloc:d.
                 // it reserve memory from the higher end.
                 // At the moment, sniff takes all free memory in bigbuff. If this changes,
                 // we can't start from beginning idx 0 but from that hi-to-start-of-allocated.
@@ -594,6 +595,7 @@ static command_t CommandTable[] = {
     {"mfu",         CmdHFMFUltra,     AlwaysAvailable, "{ MIFARE Ultralight RFIDs...          }"},
     {"mfdes",       CmdHFMFDes,       AlwaysAvailable, "{ MIFARE Desfire RFIDs...             }"},
     {"ntag424",     CmdHF_ntag424,    AlwaysAvailable, "{ NXP NTAG 4242 DNA RFIDs...          }"},
+    {"saflok",      CmdHFSaflok,      AlwaysAvailable, "{ Saflok MFC RFIDs...                 }"},
     {"seos",        CmdHFSeos,        AlwaysAvailable, "{ SEOS RFIDs...                       }"},
     {"st25ta",      CmdHFST25TA,      AlwaysAvailable, "{ ST25TA RFIDs...                     }"},
     {"tesla",       CmdHFTESLA,       AlwaysAvailable, "{ TESLA Cards...                      }"},

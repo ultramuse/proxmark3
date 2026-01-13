@@ -523,10 +523,11 @@ void FpgaDownloadAndGo(int bitstream_target) {
     lz4_stream_t compressed_fpga_stream;
     LZ4_streamDecode_t lz4StreamDecode_body = {{ 0 }};
     compressed_fpga_stream.lz4StreamDecode = &lz4StreamDecode_body;
-    uint8_t *output_buffer = BigBuf_malloc(FPGA_RING_BUFFER_BYTES);
+    uint8_t *output_buffer = BigBuf_calloc(FPGA_RING_BUFFER_BYTES);
 
-    if (!reset_fpga_stream(bitstream_target, &compressed_fpga_stream, output_buffer))
+    if (reset_fpga_stream(bitstream_target, &compressed_fpga_stream, output_buffer) == false) {
         return;
+    }
 
     uint32_t bitstream_length;
     if (bitparse_find_section(bitstream_target, 'e', &bitstream_length, &compressed_fpga_stream, output_buffer)) {
@@ -634,7 +635,7 @@ int FpgaGetCurrent(void) {
 // if HF,  Disable SSC DMA
 // turn off trace and leds off.
 void switch_off(void) {
-    if (g_dbglevel > 3) {
+    if (g_dbglevel > DBG_DEBUG) {
         Dbprintf("switch_off");
     }
 

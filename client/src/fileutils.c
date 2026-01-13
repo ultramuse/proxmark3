@@ -91,6 +91,8 @@ DumpFileType_t get_filetype(const char *filename) {
             o = FLIPPER;
         } else if (str_endswith(s, "xml")) {
             o = TAGINFO;
+        } else if (str_endswith(s, "rfid")) {
+            o = BRUCE;
         } else {
             // mfd, trc, trace is binary
             o = BIN;
@@ -3171,7 +3173,7 @@ int searchFile(char **foundpath, const char *pm3dir, const char *searchname, con
  * Returns PM3_SUCCES or, PM3_EFILE;
  *
  * @param filepath Path to the file.
- * @param line     Line to insert (should not contain a trailing newline).
+ * @param keystr     Line to insert (should not contain a trailing newline).
  */
 int insert_line_if_not_exists(const char *preferredName, const char *keystr) {
 
@@ -3293,6 +3295,7 @@ int pm3_load_dump(const char *fn, void **pdump, size_t *dumplen, size_t maxdumpl
             }
             break;
         }
+        case BRUCE:
         case FLIPPER: {
             nfc_df_e dumptype = NFC_DF_UNKNOWN;
             res = detect_nfc_dump_format(fn, &dumptype, true);

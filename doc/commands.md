@@ -139,6 +139,7 @@ Check column "offline" for their availability.
 |`data diff              `|Y       |`Diff of input files`
 |`data hexsamples        `|N       |`Dump big buffer as hex bytes`
 |`data samples           `|N       |`Get raw samples for graph window ( GraphBuffer )`
+|`data qrcode            `|Y       |`Create a QR code`
 |`data test_ss8          `|N       |`Test the implementation of Buffer Save States (8-bit buffer)`
 |`data test_ss32         `|N       |`Test the implementation of Buffer Save States (32-bit buffer)`
 |`data test_ss32s        `|N       |`Test the implementation of Buffer Save States (32-bit signed buffer)`
@@ -214,6 +215,7 @@ Check column "offline" for their availability.
 |command                  |offline |description
 |-------                  |------- |-----------
 |`hf 14b help            `|Y       |`This help`
+|`hf 14b config          `|N       |`Configure 14b settings (use with caution)`
 |`hf 14b list            `|Y       |`List ISO-14443-B history`
 |`hf 14b apdu            `|N       |`Send ISO 14443-4 APDU to tag`
 |`hf 14b dump            `|N       |`Read all memory pages of an ISO-14443-B tag, save to file`
@@ -343,8 +345,8 @@ Check column "offline" for their availability.
 |`hf felica rqspecver    `|N       |`acquire the version of card OS.`
 |`hf felica resetmode    `|N       |`reset Mode to Mode 0.`
 |`hf felica litesim      `|N       |`Emulating ISO/18092 FeliCa Lite tag`
-|`hf felica litedump     `|N       |`Wait for and try dumping FelicaLite`
 |`hf felica liteauth     `|N       |`authenticate a card.`
+|`hf felica litedump     `|N       |`Wait for and try dumping FelicaLite`
 
 
 ### hf fido
@@ -529,7 +531,7 @@ Check column "offline" for their availability.
 |`hf mf fchk             `|N       |`Check keys fast, targets all keys on card`
 |`hf mf decrypt          `|Y       |`Decrypt Crypto1 data from sniff or trace`
 |`hf mf supercard        `|N       |`Extract info from a `super card``
-|`hf mf bambukeys        `|Y       |`Generate key table for Bambu Lab filament tag`
+|`hf mf keygen           `|Y       |`Generate key table for some known KDFs`
 |`hf mf auth4            `|N       |`ISO14443-4 AES authentication`
 |`hf mf acl              `|Y       |`Decode and print MIFARE Classic access rights bytes`
 |`hf mf dump             `|N       |`Dump MIFARE Classic tag to binary file`
@@ -620,9 +622,9 @@ Check column "offline" for their availability.
 |`hf mfu keygen          `|Y       |`Generate DES/3DES/AES MIFARE diversified keys`
 |`hf mfu pwdgen          `|Y       |`Generate pwd from known algos`
 |`hf mfu otptear         `|N       |`Tear-off test on OTP bits`
-|`hf mfu cauth           `|N       |`Ultralight-C - Authentication`
-|`hf mfu setpwd          `|N       |`Ultralight-C - Set 3DES key`
-|`hf mfu aesauth         `|N       |`Ultralight-AES - Authentication`
+|`hf mfu cauth           `|N       |`Ultralight C - Authentication`
+|`hf mfu aesauth         `|N       |`Ultralight AES - Authentication`
+|`hf mfu setkey          `|N       |`Ultralight C/AES - Set 3DES/AES keys`
 |`hf mfu dump            `|N       |`Dump MIFARE Ultralight family tag to binary file`
 |`hf mfu incr            `|N       |`Increments Ev1/NTAG counter`
 |`hf mfu info            `|N       |`Tag information`
@@ -705,6 +707,25 @@ Check column "offline" for their availability.
 |`hf ntag424 changekey   `|N       |`Change key`
 
 
+### hf saflok
+
+ { Saflok MFC RFIDs...                 }
+
+|command                  |offline |description
+|-------                  |------- |-----------
+|`hf saflok help         `|Y       |`This help`
+|`hf saflok read         `|N       |`Read Saflok card`
+|`hf saflok provision    `|N       |`Provision Saflok card`
+|`hf saflok encode       `|Y       |`Encode Saflok card data`
+|`hf saflok decode       `|Y       |`Decode Saflok card data`
+|`hf saflok modify       `|Y       |`Modify Saflok card data`
+|`hf saflok encrypt      `|Y       |`Encrypt 17-byte decrypted block`
+|`hf saflok decrypt      `|Y       |`Decrypt 17-byte encrypted block`
+|`hf saflok interrogate  `|N       |`Interrogate saflok card`
+|`hf saflok cksum        `|N       |`Generate checksum for data block`
+|`hf saflok selftest     `|Y       |`Run self-test`
+
+
 ### hf seos
 
  { SEOS RFIDs...                       }
@@ -715,9 +736,10 @@ Check column "offline" for their availability.
 |`hf seos list           `|Y       |`List SEOS history`
 |`hf seos sam            `|N       |`SAM tests`
 |`hf seos info           `|N       |`Tag information`
-|`hf seos pacs           `|Y       |`Extract PACS Information from card`
-|`hf seos adf            `|Y       |`Read an ADF from the card`
-|`hf seos gdf            `|Y       |`Read an GDF from card`
+|`hf seos pacs           `|N       |`Extract PACS Information from card`
+|`hf seos write          `|N       |`Write an ADF to the card`
+|`hf seos adf            `|N       |`Read an ADF from the card`
+|`hf seos gdf            `|N       |`Read an GDF from card`
 |`hf seos managekeys     `|Y       |`Manage keys to use with SEOS commands`
 
 
@@ -1137,7 +1159,7 @@ Check column "offline" for their availability.
 |command                  |offline |description
 |-------                  |------- |-----------
 |`lf indala help         `|Y       |`This help`
-|`lf indala brute        `|N       |`Demodulate an Indala tag (PSK1) from the GraphBuffer`
+|`lf indala brute        `|N       |`Bruteforce an Indala reader with a specified facility code`
 |`lf indala demod        `|Y       |`Demodulate an Indala tag (PSK1) from the GraphBuffer`
 |`lf indala altdemod     `|Y       |`Alternative method to demodulate samples for Indala 64 bit UID (option '224' for 224 bit)`
 |`lf indala reader       `|N       |`Read an Indala tag from the antenna`

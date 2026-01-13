@@ -163,6 +163,21 @@ typedef struct {
     iso14a_polling_frame_t polling_loop_annotation; // Polling loop annotation
 } PACKED hf14a_config_t;
 
+// Defines a frame that will be used in ISO14443B polling sequence
+// Polling loop annotations are up to 20 bytes long, 24 bytes should cover future and other cases
+typedef struct {
+    uint8_t frame[24];
+    // negative values can be used to carry special info
+    int8_t frame_length;
+    uint8_t last_byte_bits;
+    uint16_t extra_delay;
+} PACKED iso14b_polling_frame_t;
+
+// A struct used to send hf14b-configs over USB
+typedef struct {
+    iso14b_polling_frame_t polling_loop_annotation; // Polling loop annotation
+} PACKED hf14b_config_t;
+
 // Tracelog Header struct
 typedef struct {
     uint32_t timestamp;
@@ -223,6 +238,7 @@ typedef struct {
     bool compiled_with_felica          : 1;
     bool compiled_with_legicrf         : 1;
     bool compiled_with_iclass          : 1;
+    bool compiled_with_seos            : 1;
     bool compiled_with_nfcbarcode      : 1;
     // misc
     bool compiled_with_lcd             : 1;
@@ -232,7 +248,7 @@ typedef struct {
     bool hw_available_smartcard        : 1;
     bool is_rdv4                       : 1;
 } PACKED capabilities_t;
-#define CAPABILITIES_VERSION 6
+#define CAPABILITIES_VERSION 7
 extern capabilities_t g_pm3_capabilities;
 
 // For CMD_LF_T55XX_WRITEBL
@@ -356,6 +372,36 @@ typedef struct {
 } PACKED mfulc_keys_t;
 
 typedef struct {
+    bool turn_off_field;
+    bool use_schann;
+    uint8_t keyno;
+    uint8_t key[16];
+} PACKED mfulaes_keys_t;
+
+typedef struct {
+    bool use_schann;
+    uint8_t block_no;
+    uint8_t num_of_blocks;
+    uint8_t keytype;
+    uint8_t keylen;
+    uint8_t key[16];
+} PACKED mful_readblock_t;
+
+typedef struct {
+    uint8_t bytelen;
+    uint16_t startidx;
+} PACKED mful_readblock_resp_t;
+
+typedef struct {
+    bool use_schann;
+    uint8_t block_no;
+    uint8_t keytype;
+    uint8_t keylen;
+    uint8_t key[16];
+    uint8_t data[16];
+} PACKED mful_writeblock_t;
+
+typedef struct {
     uint8_t status;
     uint8_t CSN[8];
     uint8_t CONFIG[8];
@@ -371,6 +417,7 @@ typedef struct {
 
 typedef struct {
     uint16_t delay_us;
+    int8_t skip;
     bool on;
     bool off;
 } PACKED tearoff_params_t;
@@ -472,6 +519,9 @@ typedef struct {
 #define CMD_SPIFFS_MOUNT                                                  0x0130
 #define CMD_SPIFFS_UNMOUNT                                                0x0131
 #define CMD_SPIFFS_WRITE                                                  0x0132
+
+#define CMD_FLASHMEM_GET_SIGNATURE                                        0x0147
+#define CMD_FLASHMEM_GET_INFO                                             0x0148
 
 // We take +0x1000 when having a variant of similar function (todo : make it an argument!)
 #define CMD_SPIFFS_APPEND                                                 0x1132
@@ -692,6 +742,11 @@ typedef struct {
 
 #define CMD_HF_ISO14443A_SET_THRESHOLDS                                   0x03B8
 
+// For 14b config
+#define CMD_HF_ISO14443B_PRINT_CONFIG                                     0x03D0
+#define CMD_HF_ISO14443B_GET_CONFIG                                       0x03D1
+#define CMD_HF_ISO14443B_SET_CONFIG                                       0x03D2
+
 // For measurements of the antenna tuning
 #define CMD_MEASURE_ANTENNA_TUNING                                        0x0400
 #define CMD_MEASURE_ANTENNA_TUNING_HF                                     0x0401
@@ -748,7 +803,7 @@ typedef struct {
 // Ultralight AES
 #define CMD_HF_MIFAREULAES_AUTH                                           0x0725
 // 0x0726 no longer used
-#define CMD_HF_MIFAREUC_SETPWD                                            0x0727
+#define CMD_HF_MIFAREU_SETKEY                                             0x0727
 
 // mifare desfire
 #define CMD_HF_DESFIRE_READBL                                             0x0728
@@ -767,7 +822,8 @@ typedef struct {
 #define CMD_HF_MFU_OTP_TEAROFF                                            0x0740
 // MFU_Ev1 Counter TearOff
 #define CMD_HF_MFU_COUNTER_TEAROFF                                        0x0741
-
+#define CMD_HF_MFU_ULC_CHKKEYS                                            0x0742
+#define CMD_HF_MFU_ULAES_CHKKEYS                                          0x0743
 
 
 #define CMD_HF_SNIFF                                                      0x0800
@@ -801,6 +857,8 @@ typedef struct {
 #define CMD_HF_SAM_PICOPASS                                               0x0900
 #define CMD_HF_SAM_SEOS                                                   0x0901
 #define CMD_HF_SAM_MFC                                                    0x0902
+
+#define CMD_HF_SEOS_SIMULATE                                              0x0903
 
 #define CMD_UNKNOWN                                                       0xFFFF
 
@@ -843,11 +901,13 @@ typedef struct {
 #define MIFARE_2K_MAX_BYTES     2048
 #define MIFARE_1K_MAX_BYTES     1024
 #define MIFARE_MINI_MAX_BYTES   320
+
 #define FLAG_MASK_MF_SIZE       0x00C0
 #define FLAG_MF_MINI            0x0000
 #define FLAG_MF_1K              0x0040
 #define FLAG_MF_2K              0x0080
 #define FLAG_MF_4K              0x00C0
+
 #define FLAG_SET_MF_SIZE(flags, size) {\
     flags = (flags & (~FLAG_MASK_MF_SIZE))|\
         (size == MIFARE_MINI_MAX_BYTES ? FLAG_MF_MINI : \
@@ -856,6 +916,7 @@ typedef struct {
         (size == MIFARE_4K_MAX_BYTES ? FLAG_MF_4K : \
         0))));\
     }
+
 // else we tell to take UID from block 0:
 #define IS_FLAG_MF_SIZE(flags, size) (\
     (flags & FLAG_MASK_MF_SIZE) == \

@@ -635,10 +635,20 @@ static void set_my_executable_path(void) {
     }
 
     my_executable_path = (char *)calloc(path_length + 1, sizeof(uint8_t));
+    if (my_executable_path == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return;
+    }
+
     int dirname_length = 0;
     if (wai_getExecutablePath(my_executable_path, path_length, &dirname_length) != -1) {
         my_executable_path[path_length] = '\0';
         my_executable_directory = (char *)calloc(dirname_length + 2, sizeof(uint8_t));
+        if (my_executable_path == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            return;
+        }
+
         strncpy(my_executable_directory, my_executable_path, dirname_length + 1);
         my_executable_directory[dirname_length + 1] = '\0';
     }
@@ -706,9 +716,9 @@ static void show_help(bool showFullHelp, char *exec_name) {
 
     PrintAndLogEx(NORMAL, "\nsyntax: %s [-h|-t|-m|--fulltext]", exec_name);
 #ifdef HAVE_PYTHON
-    PrintAndLogEx(NORMAL, "        %s [[-p] <port>] [-b] [-w] [-f] [-c <command>]|[-l <lua_script_file>]|[-y <python_script_file>]|[-s <cmd_script_file>] [-i] [-d <0|1|2>]", exec_name);
+    PrintAndLogEx(NORMAL, "        %s [[-p] <port>] [-b] [-w] [-f] [-d <0|1|2>] [--incognito] [--ncpu <num_cores>] [-c \"<command>\"]|[-l <lua_script_file>]|[-y <python_script_file>]|[-s <cmd_script_file>] [-i] [-- <arg0> <arg1>...]", exec_name);
 #else // HAVE_PYTHON
-    PrintAndLogEx(NORMAL, "        %s [[-p] <port>] [-b] [-w] [-f] [-c <command>]|[-l <lua_script_file>]|[-s <cmd_script_file>] [-i] [-d <0|1|2>]", exec_name);
+    PrintAndLogEx(NORMAL, "        %s [[-p] <port>] [-b] [-w] [-f] [-d <0|1|2>] [--incognito] [--ncpu <num_cores>] [-c \"<command>\"]|[-l <lua_script_file>]|[-s <cmd_script_file>] [-i] [-- <arg0> <arg1>...]", exec_name);
 #endif // HAVE_PYTHON
     PrintAndLogEx(NORMAL, "        %s [-p] <port> --flash [--unlock-bootloader] [--image <imagefile>]+ [-w] [-f] [-d <0|1|2>]", exec_name);
 
@@ -726,7 +736,9 @@ static void show_help(bool showFullHelp, char *exec_name) {
         PrintAndLogEx(NORMAL, "      --fulltext                          dump all interactive command's help at once");
         PrintAndLogEx(NORMAL, "      -m/--markdown                       dump all interactive command list at once in markdown syntax");
         PrintAndLogEx(NORMAL, "      -b/--baud                           serial port speed (only needed for physical UART, not for USB-CDC or BT)");
-        PrintAndLogEx(NORMAL, "      -c/--command <command>              execute one Proxmark3 command (or several separated by ';').");
+        PrintAndLogEx(NORMAL, "      --incognito                         do not use history, prefs file nor log files");
+        PrintAndLogEx(NORMAL, "      --ncpu <num_cores>                  override number of CPU cores");
+        PrintAndLogEx(NORMAL, "      -c/--command \"<command>\"          execute one Proxmark3 command (or several separated by ';').");
         PrintAndLogEx(NORMAL, "      -l/--lua <lua_script_file>          execute Lua script.");
 #ifdef HAVE_PYTHON
         // Technically, --lua and --py are identical and interexchangeable
@@ -734,8 +746,7 @@ static void show_help(bool showFullHelp, char *exec_name) {
 #endif // HAVE_PYTHON
         PrintAndLogEx(NORMAL, "      -s/--script-file <cmd_script_file>  script file with one Proxmark3 command per line");
         PrintAndLogEx(NORMAL, "      -i/--interactive                    enter interactive mode after executing the script or the command");
-        PrintAndLogEx(NORMAL, "      --incognito                         do not use history, prefs file nor log files");
-        PrintAndLogEx(NORMAL, "      --ncpu <num_cores>                  override number of CPU cores");
+        PrintAndLogEx(NORMAL, "      -- <arg0> <arg1>...                 all args following -- are passed to the client command line");
         PrintAndLogEx(NORMAL, "\nOptions in flasher mode:");
         PrintAndLogEx(NORMAL, "      --flash                             flash Proxmark3, requires at least one --image");
         PrintAndLogEx(NORMAL, "      --reboot-to-bootloader              reboot Proxmark3 into bootloader mode");
@@ -1220,6 +1231,30 @@ int main(int argc, char *argv[]) {
             continue;
         }
 #endif // HAVE_PYTHON
+        // append all following args to script_cmd
+        if (strcmp(argv[i], "--") == 0) {
+            bool script_cmd_on_heap = false;
+            for (++i; i < argc; i++) {
+                int extra_len = strlen(argv[i]) + 1;
+                int old_len = script_cmd ? strlen(script_cmd) : 0;
+                char *new_cmd = (char *) calloc(old_len + extra_len + 1, sizeof(uint8_t));
+                if (new_cmd == NULL) {
+                    PrintAndLogEx(WARNING, "Failed to allocate memory");
+                    return 1;
+                }
+                if (script_cmd) {
+                    strcpy(new_cmd, script_cmd);
+                    strcat(new_cmd, " ");
+                    if (script_cmd_on_heap) {
+                        free(script_cmd);
+                    }
+                }
+                strcat(new_cmd, argv[i]);
+                script_cmd = new_cmd;
+                script_cmd_on_heap = true;
+            }
+            continue;
+        }
         // go to interactive instead of quitting after a script/command
         if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--interactive") == 0) {
             stayInCommandLoop = true;

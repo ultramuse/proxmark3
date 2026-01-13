@@ -180,8 +180,7 @@ static void CodeIso15693AsReaderEOF(void) {
 
 static int get_uid_slix(uint32_t start_time, uint32_t *eof_time, uint8_t *uid) {
 
-    uint8_t *answer = BigBuf_malloc(ISO15693_MAX_RESPONSE_LENGTH);
-    memset(answer, 0x00, ISO15693_MAX_RESPONSE_LENGTH);
+    uint8_t *answer = BigBuf_calloc(ISO15693_MAX_RESPONSE_LENGTH);
 
     start_time = *eof_time + DELAY_ISO15693_VICC_TO_VCD_READER;
 
@@ -1484,7 +1483,7 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
     bool gotFrame = false;
 
     // the decoder data structure
-    DecodeReader_t *dr = (DecodeReader_t *)BigBuf_malloc(sizeof(DecodeReader_t));
+    DecodeReader_t *dr = (DecodeReader_t *)BigBuf_calloc(sizeof(DecodeReader_t));
     DecodeReaderInit(dr, received, max_len, 0, NULL);
 
     // wait for last transfer to complete
@@ -1589,7 +1588,7 @@ void AcquireRawAdcSamplesIso15693(void) {
 
     LED_A_ON();
 
-    uint8_t *dest = BigBuf_malloc(4000);
+    uint8_t *dest = BigBuf_calloc(4096);
 
     // switch field on
     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER);
@@ -2031,7 +2030,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
     LED_A_ON();
     set_tracing(true);
 
-    uint8_t *answer = BigBuf_malloc(ISO15693_MAX_RESPONSE_LENGTH);
+    uint8_t *answer = BigBuf_calloc(ISO15693_MAX_RESPONSE_LENGTH);
     memset(answer, 0x00, ISO15693_MAX_RESPONSE_LENGTH);
 
     // FIRST WE RUN AN INVENTORY TO GET THE TAG UID
@@ -2730,26 +2729,29 @@ void SendRawCommand15693(iso15_raw_cmd_t *packet) {
     } else {
 
         // if tag answers with an error code,  it don't care about EOF packet
-        if (recvlen) {
-            recvlen = MIN(recvlen, ISO15693_MAX_RESPONSE_LENGTH);
-            reply_ng(CMD_HF_ISO15693_COMMAND, res, buf, recvlen);
-        }
+        // normal tag answer without Option_flag also processed here
+        if (recvlen || !request_answer) {
+            if (request_answer || read_respone) {
+                recvlen = MIN(recvlen, ISO15693_MAX_RESPONSE_LENGTH);
+                reply_ng(CMD_HF_ISO15693_COMMAND, res, buf, recvlen);
+            } else {
+                reply_ng(CMD_HF_ISO15693_COMMAND, PM3_SUCCESS, NULL, 0);
+            }
+        } else {
+            // looking at the first byte of the RAW bytes to determine Subcarrier, datarate, request option
+            bool fsk = ((packet->raw[0] & ISO15_REQ_SUBCARRIER_TWO) == ISO15_REQ_SUBCARRIER_TWO);
+            bool recv_speed = ((packet->raw[0] & ISO15_REQ_DATARATE_HIGH) == ISO15_REQ_DATARATE_HIGH);
 
-        // looking at the first byte of the RAW bytes to determine Subcarrier, datarate, request option
-        bool fsk = ((packet->raw[0] & ISO15_REQ_SUBCARRIER_TWO) == ISO15_REQ_SUBCARRIER_TWO);
-        bool recv_speed = ((packet->raw[0] & ISO15_REQ_DATARATE_HIGH) == ISO15_REQ_DATARATE_HIGH);
-
-        // send a single EOF to get the tag response
-        if (request_answer) {
+            // send a single EOF to get the tag response
             start_time = eof_time + DELAY_ISO15693_VICC_TO_VCD_READER;
             res = SendDataTagEOF((read_respone ? buf : NULL), sizeof(buf), start_time, ISO15693_READER_TIMEOUT, &eof_time, fsk, recv_speed, &recvlen);
-        }
 
-        if (read_respone) {
-            recvlen = MIN(recvlen, ISO15693_MAX_RESPONSE_LENGTH);
-            reply_ng(CMD_HF_ISO15693_COMMAND, res, buf, recvlen);
-        } else {
-            reply_ng(CMD_HF_ISO15693_COMMAND, PM3_SUCCESS, NULL, 0);
+            if (read_respone) {
+                recvlen = MIN(recvlen, ISO15693_MAX_RESPONSE_LENGTH);
+                reply_ng(CMD_HF_ISO15693_COMMAND, res, buf, recvlen);
+            } else {
+                reply_ng(CMD_HF_ISO15693_COMMAND, PM3_SUCCESS, NULL, 0);
+            }
         }
     }
 

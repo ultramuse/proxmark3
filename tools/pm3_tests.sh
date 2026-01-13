@@ -6,6 +6,11 @@ LANG=C
 PM3PATH="$(dirname "$0")/.."
 cd "$PM3PATH" || exit 1
 
+PYTHON=python3
+if command -v uv >/dev/null 2>&1; then
+    PYTHON="uv run --script"
+fi
+
 DICPATH="./client/dictionaries"
 RESOURCEPATH="./client/resources"
 
@@ -279,11 +284,11 @@ while true; do
       if ! CheckFileExist "HITAG2 dictionary exists"        "$DICPATH/ht2_default.dic"; then break; fi
 
       echo -e "\n${C_BLUE}Testing tools:${C_NC}"
-      if ! CheckExecute "xorcheck test"                    "tools/xorcheck.py 04 00 80 64 ba" "final LRC XOR byte value: 5A"; then break; fi
-      if ! CheckExecute "findbits test"                    "tools/findbits.py 73 0110010101110011" "Match at bit 9: 011001010"; then break; fi
-      if ! CheckExecute "findbits_test test"               "tools/findbits_test.py 2>&1" "OK"; then break; fi
-      if ! CheckExecute "pm3_eml_mfd test"                 "tools/mfc/pm3_eml_mfd_test.py 2>&1" "OK"; then break; fi
-      if ! CheckExecute "recover_pk test"                  "tools/recover_pk.py selftests 2>&1" "Tests:.*\(.*ok.*"; then break; fi
+      if ! CheckExecute "xorcheck test"                    "$PYTHON tools/xorcheck.py 04 00 80 64 ba" "final LRC XOR byte value: 5A"; then break; fi
+      if ! CheckExecute "findbits test"                    "$PYTHON tools/findbits.py 73 0110010101110011" "Match at bit 9: 011001010"; then break; fi
+      if ! CheckExecute "findbits_test test"               "$PYTHON tools/findbits_test.py 2>&1" "OK"; then break; fi
+      if ! CheckExecute "pm3_eml_mfd test"                 "$PYTHON tools/mfc/pm3_eml_mfd_test.py 2>&1" "OK"; then break; fi
+      if ! CheckExecute "recover_pk test"                  "$PYTHON tools/recover_pk.py selftests 2>&1" "Tests:.*\(.*ok.*"; then break; fi
       if ! CheckExecute "mkversion create test"            "tools/mkversion.sh --short" 'Iceman/'; then break; fi
     fi
     if $TESTALL || $TESTBOOTROM; then
@@ -372,7 +377,7 @@ while true; do
       HT2CRACK3KEY=000102030405
       HT2CRACK3N=32
       HT2CRACK3NRAR=hitag2_${HT2CRACK3UID}_nrar_${HT2CRACK3N}emul.txt
-      if ! CheckExecute "ht2crack3 gen testfile"           "cd $HT2CRACK3PATH; python3 ../hitag2_gen_nRaR.py $HT2CRACK3KEY $HT2CRACK3UID $HT2CRACK3N > $HT2CRACK3NRAR && echo SUCCESS" "SUCCESS"; then break; fi
+      if ! CheckExecute "ht2crack3 gen testfile"           "cd $HT2CRACK3PATH; $PYTHON ../hitag2_gen_nRaR.py $HT2CRACK3KEY $HT2CRACK3UID $HT2CRACK3N > $HT2CRACK3NRAR && echo SUCCESS" "SUCCESS"; then break; fi
       if ! CheckExecute "ht2crack3test test"               "cd $HT2CRACK3PATH; ./ht2crack3test $HT2CRACK3NRAR $HT2CRACK3KEY $HT2CRACK3UID|grep -v SUCCESS||echo SUCCESS" "SUCCESS"; then break; fi
       if ! CheckExecute "ht2crack3 test"                   "cd $HT2CRACK3PATH; ./ht2crack3 $HT2CRACK3UID $HT2CRACK3NRAR |grep -E -v '(trying|partial)'" "key = $HT2CRACK3KEY"; then break; fi
       if ! CheckExecute "ht2crack3 rm testfile"            "cd $HT2CRACK3PATH; rm $HT2CRACK3NRAR && echo SUCCESS" "SUCCESS"; then break; fi
@@ -386,7 +391,7 @@ while true; do
       # The success is probabilistic: a fresh random nRaR file is required for each run
       # Order of magnitude to crack it: ~15s -> tagged as "slow"
       if ! CheckExecute slow retry ignore "ht2crack4 test" "cd $HT2CRACK4PATH; \
-                                                            python3 ../hitag2_gen_nRaR.py $HT2CRACK4KEY $HT2CRACK4UID $HT2CRACK4N > $HT2CRACK4NRAR; \
+                                                            $PYTHON ../hitag2_gen_nRaR.py $HT2CRACK4KEY $HT2CRACK4UID $HT2CRACK4N > $HT2CRACK4NRAR; \
                                                             ./ht2crack4 -u $HT2CRACK4UID -n $HT2CRACK4NRAR -N 16 -t 500000 2>&1; \
                                                             rm $HT2CRACK4NRAR" "key = $HT2CRACK4KEY"; then break; fi
 
@@ -448,8 +453,16 @@ while true; do
       if ! CheckExecute "nfc decode test - vcard"        "$CLIENTBIN -c 'nfc decode -d d20ca3746578742f782d7643617264424547494e3a56434152440a56455253494f4e3a332e300a4e3a43687269733b4963656d616e3b3b3b0a464e3a476f7468656e627572670a5245563a323032312d30362d32345432303a31353a30385a0a6974656d322e582d4142444154453b747970653d707265663a323032302d30362d32340a4954454d322e582d41424c4142454c3a5f24213c416e6e69766572736172793e21245f0a454e443a56434152440a'" "END:VCARD"; then break; fi
       if ! CheckExecute "nfc decode test - apple wallet" "$CLIENTBIN -c 'nfc decode -d 031AD10116550077616C6C65743A2F2F61637469766174652F6E6663FE'" "activate/nfc"; then break; fi
       if ! CheckExecute "nfc decode test - signature"    "$CLIENTBIN -c 'nfc decode -d 03FF010194113870696C65742E65653A656B616172743A3266195F26063132303832325904202020205F28033233335F2701316E1B5A13333038363439303039303030323636343030355304EBF2CE704103000000AC536967010200803A2448FCA7D354A654A81BD021150D1A152D1DF4D7A55D2B771F12F094EAB6E5E10F2617A2F8DAD4FD38AFF8EA39B71C19BD42618CDA86EE7E144636C8E0E7CFC4096E19C3680E09C78A0CDBC05DA2D698E551D5D709717655E56FE3676880B897D2C70DF5F06ECE07C71435255144F8EE41AF110E7B180DA0E6C22FB8FDEF61800025687474703A2F2F70696C65742E65652F6372742F33303836343930302D303030312E637274FE'" "30864900-0001.crt"; then break; fi
+      if ! CheckExecute "nfc decode test - openprinter tag"  "$CLIENTBIN -c 'nfc decode -d 03FF012F91013A55046E756D616B6572732E636F6D2F70726F64756374732F6162732D66696C616D656E743F76617269616E743D3436393434323937333836323932521CD26170706C69636174696F6E2F766E642E6F70656E7072696E74746167A10218AFBF041B000007D0FCAB45F9080009020A70414253204C656D6F6E2059656C6C6F770B684E756D616B6572730E1A69094200101903E81119041A1218F01343F9A800181DF93C29182218F01823190104182418AA1825185A18261864FF00'" "application/vnd.openprinttag"; then break; fi
+
       if ! CheckExecute "wiegand decode test - raw"  "$CLIENTBIN -c 'wiegand decode --raw 2006F623AE'" "FC: 123  CN: 4567  parity \( ok \)"; then break; fi
       if ! CheckExecute "wiegand decode test - new"  "$CLIENTBIN -c 'wiegand decode --new 06BD88EB80'" "FC: 123  CN: 4567  parity \( ok \)"; then break; fi
+      if ! CheckExecute "wiegand Verkada40 encode test 1" "$CLIENTBIN -c 'wiegand encode -w Verkada40 --fc 50 --cn 1001'" "86400007D3"; then break; fi
+      if ! CheckExecute "wiegand Verkada40 decode test 1" "$CLIENTBIN -c 'wiegand decode --raw 86400007D3'" "Verkada40.*FC: 50  CN: 1001  parity \( ok \)"; then break; fi
+      if ! CheckExecute "wiegand Verkada40 encode test 2" "$CLIENTBIN -c 'wiegand encode -w Verkada40 --fc 50 --cn 1004'" "86400007D9"; then break; fi
+      if ! CheckExecute "wiegand Verkada40 decode test 2" "$CLIENTBIN -c 'wiegand decode --raw 86400007D9'" "Verkada40.*FC: 50  CN: 1004  parity \( ok \)"; then break; fi
+      if ! CheckExecute "wiegand Verkada40 encode test 3" "$CLIENTBIN -c 'wiegand encode -w Verkada40 --fc 81 --cn 5008'" "8A20002721"; then break; fi
+      if ! CheckExecute "wiegand Verkada40 decode test 3" "$CLIENTBIN -c 'wiegand decode --raw 8A20002721'" "Verkada40.*FC: 81  CN: 5008  parity \( ok \)"; then break; fi
 
       echo -e "\n${C_BLUE}Testing LF:${C_NC}"
       if ! CheckExecute "lf hitag2 test"             "$CLIENTBIN -c 'lf hitag test'" "Tests \( ok"; then break; fi

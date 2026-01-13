@@ -24,34 +24,33 @@ assignees: doegox, iceman1001
 Run `tools/release_tests.sh` on:
 
 - [ ] RPI Zero
-- [ ] Jetson Nano
 - [ ] WSL
-- [ ] PSv3.xx
-- [ ] Archlinux
-- [ ] Kali
-- [ ] Debian Stable
-- [ ] Debian Testing
-- [ ] Ubuntu 24.04 (LTS)
-- [ ] Ubuntu 24.10
-- [ ] Ubuntu 25.04
-- [ ] ParrotOS
-- [ ] Fedora 41 (till 2025-11-19)
-- [ ] Fedora 42 (till 2026-05-13)
-- [ ] Fedora 43 (till 2026-12-02)
-- [ ] OpenSuse Leap
-- [ ] OpenSuse Tumbleweed
+- [ ] ProxSpace v3.xx
+- via Docker
+  - [ ] Archlinux
+  - [ ] Debian Stable
+  - [ ] Debian Testing
+  - [ ] Fedora 42 (till 2026-05-13)
+  - [ ] Fedora 43 (till 2026-12-02)
+  - [ ] Kali
+  - [ ] OpenSuse Leap
+  - [ ] OpenSuse Tumbleweed
+  - [ ] ParrotOS
+  - [ ] Ubuntu 24.04 (LTS)
+  - [ ] Ubuntu 24.10
+  - [ ] Ubuntu 25.04
 - [ ] OSX (MacPorts)
 - [ ] OSX (Homebrew)
-- [ ] Android
 - [ ] Termux
+- [ ] Android cmake cross-compilation ?
 
 # creating release
 
-- [ ] CHANGELOG.md: add title: `## [myreleasename][YYYY-MM-DD]`
+- [ ] CHANGELOG.md: add title: `## [myreleasename][YYYY-MM-DD]` and push to repo.
 - [ ] `make release RELEASE_NAME="myreleasename"`
   - last line of output gives you next command to run.
   - Sample:  `git push && git push origin v4.12345`
-- [ ] CHANGELOG.md: edit title to add version info: `## [myreleasename.4.12345][YYYY-MM-DD]`
+- [ ] CHANGELOG.md: edit title to add version info: `## [myreleasename.4.12345][YYYY-MM-DD]` push to repo.
 
 ## Step Github releases
 
@@ -64,6 +63,10 @@ Run `tools/release_tests.sh` on:
 ```
 Release v4.12345
 Nickname "myreleasename"
+
+## CHANGELOG   -  [myreleasename][YYYY-MM-DD]
+
+< paste relevant part from CHANGELOG file here >
 ```
 
 ## Step Homebrew updates

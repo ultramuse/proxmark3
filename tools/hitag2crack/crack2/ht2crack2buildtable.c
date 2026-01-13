@@ -354,7 +354,7 @@ static void makedirs(void) {
     }
 }
 
-static int datacmp(const void *p1, const void *p2, void *dummy) {
+static int datacmp(const void *p1, const void *p2) {
     unsigned char *d_1 = (unsigned char *)p1;
     unsigned char *d_2 = (unsigned char *)p2;
 
@@ -420,8 +420,7 @@ static void *sorttable(void *dd) {
             close(fdin);
 
             // sort it
-            void *dummy = NULL; // clang
-            qsort_r(table, numentries, DATASIZE, datacmp, dummy);
+            qsort(table, numentries, DATASIZE, datacmp);
 
             // write to file
             snprintf(outfile, sizeof(outfile), "sorted/%02x/%02x.bin", i, j);
@@ -453,7 +452,7 @@ int main(int argc, char *argv[]) {
 
     // make the table of tables
     t = (struct table *)calloc(sizeof(struct table) * 65536, sizeof(uint8_t));
-    if (!t) {
+    if (t == NULL) {
         printf("calloc failed\n");
         exit(1);
     }

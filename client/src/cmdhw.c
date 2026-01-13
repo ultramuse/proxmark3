@@ -1174,6 +1174,11 @@ int handle_tearoff(tearoff_params_t *params, bool verbose) {
         if (params->delay_us > 0 && verbose)
             PrintAndLogEx(INFO, "Tear-off hook configured with delay of " _GREEN_("%i us"), params->delay_us);
 
+        if (params->skip > 0 && verbose)
+            PrintAndLogEx(INFO, "Tear-off hook will be skipped " _YELLOW_("%i times") " before being activated", params->skip);
+        if (params->skip == 0 && verbose)
+            PrintAndLogEx(INFO, "Tear-off hook skipping " _GREEN_("disabled"));
+
         if (params->on && verbose)
             PrintAndLogEx(INFO, "Tear-off hook " _GREEN_("enabled"));
 
@@ -1184,6 +1189,7 @@ int handle_tearoff(tearoff_params_t *params, bool verbose) {
     return resp.status;
 }
 
+
 static int CmdTearoff(const char *Cmd) {
     CLIParserContext *ctx;
     CLIParserInit(&ctx, "hw tearoff",
@@ -1192,14 +1198,17 @@ static int CmdTearoff(const char *Cmd) {
                   "Delay (in us) must be between 1 and 43000 (43ms). Precision is about 1/3us.",
                   "hw tearoff --delay 1200 --> define delay of 1200us\n"
                   "hw tearoff --on --> (re)activate a previously defined delay\n"
-                  "hw tearoff --off --> deactivate a previously activated but not yet triggered hook\n");
+                  "hw tearoff --off --> deactivate a previously activated but not yet triggered hook\n"
+                  "hw tearoff --list --> list commands implementing tear-off hooks\n");
 
     void *argtable[] = {
         arg_param_begin,
         arg_int0(NULL, "delay", "<dec>", "Delay in us before triggering tear-off, must be between 1 and 43000"),
         arg_lit0(NULL, "on", "Activate tear-off hook"),
         arg_lit0(NULL, "off", "Deactivate tear-off hook"),
+        arg_int0(NULL, "skip", "<dec>", "Skip N triggers before activating the hook"),
         arg_lit0("s", "silent", "less verbose output"),
+        arg_lit0(NULL, "list", "List commands implementing tear-off hooks"),
         arg_param_end
     };
 
@@ -1208,8 +1217,36 @@ static int CmdTearoff(const char *Cmd) {
     int delay = arg_get_int_def(ctx, 1, -1);
     params.on = arg_get_lit(ctx, 2);
     params.off = arg_get_lit(ctx, 3);
-    bool silent = arg_get_lit(ctx, 4);
+    int skip = arg_get_int_def(ctx, 4, -1);
+    bool silent = arg_get_lit(ctx, 5);
+    bool list = arg_get_lit(ctx, 6);
     CLIParserFree(ctx);
+
+    if (list) {
+        PrintAndLogEx(INFO, "Commands implementing tear-off hooks:");
+        PrintAndLogEx(INFO, "  hf 14a raw");
+        PrintAndLogEx(INFO, "  hf 14b apdu");
+        PrintAndLogEx(INFO, "  hf 14b raw");
+        PrintAndLogEx(INFO, "  hf 15 raw");
+        PrintAndLogEx(INFO, "  hf iclass creditepurse");
+        PrintAndLogEx(INFO, "  hf iclass wrbl");
+        PrintAndLogEx(INFO, "  hf mf wrbl");
+        PrintAndLogEx(INFO, "  hf mfu wrbl (with --skip 3)");
+        PrintAndLogEx(INFO, "  hf topaz wrbl");
+        PrintAndLogEx(INFO, "  lf em 4x05 write");
+        PrintAndLogEx(INFO, "  lf em 4x50 wrbl");
+        PrintAndLogEx(INFO, "  lf em 4x50 wrpwd");
+        PrintAndLogEx(INFO, "  lf hitag wrbl");
+        PrintAndLogEx(INFO, "  lf hitag hts wrbl");
+        PrintAndLogEx(INFO, "");
+        PrintAndLogEx(INFO, "See also commands implementing tearing-off on their own:");
+        PrintAndLogEx(INFO, "  lf em 4x05_unlock");
+        PrintAndLogEx(INFO, "  lf t55xx dangerraw");
+        PrintAndLogEx(INFO, "  hf iclass tear");
+        PrintAndLogEx(INFO, "  hf mfu otptear");
+        PrintAndLogEx(INFO, "  Standalone mode HF_ST25_TEAROFF");
+        return PM3_SUCCESS;
+    }
 
     if (delay != -1) {
         if ((delay < 1) || (delay > 43000)) {
@@ -1221,6 +1258,16 @@ static int CmdTearoff(const char *Cmd) {
     }
 
     params.delay_us = delay;
+
+    if (skip != -1) {
+        if ((skip < 0) || (skip > 127)) {
+            PrintAndLogEx(WARNING, "You can't set skip out of 0..127 range!");
+            return PM3_EINVARG;
+        }
+    }
+
+    params.skip = skip;
+
     if (params.on && params.off) {
         PrintAndLogEx(WARNING, "You can't set both --on and --off!");
         return PM3_EINVARG;
@@ -1575,16 +1622,25 @@ void pm3_version_short(void) {
 
             if (IfPm3Rdv4Fw()) {
 
-                bool is_genuine_rdv4 = false;
+
                 // validate signature data
                 rdv40_validation_t mem;
-                if (rdv4_get_signature(&mem) == PM3_SUCCESS) {
-                    if (rdv4_validate(&mem) == PM3_SUCCESS) {
-                        is_genuine_rdv4 = true;
+                signature_e type;
+
+                if (pm3_get_signature(&mem) == PM3_SUCCESS) {
+                    if (pm3_validate(&mem, &type) == PM3_SUCCESS) {
+
+                        if (type == SIGN_RDV4) {
+                            PrintAndLogEx(NORMAL, "    Target.... %s", _YELLOW_("RDV4"));
+                        } else if (type == SIGN_GENERIC) {
+                            PrintAndLogEx(NORMAL, "    Target.... %s", _YELLOW_("GENERIC"));
+                        } else {
+                            PrintAndLogEx(NORMAL, "    Target.... %s", _RED_("device / fw mismatch"));
+                        }
                     }
                 }
 
-                PrintAndLogEx(NORMAL, "    Target.... %s", (is_genuine_rdv4) ? _YELLOW_("RDV4") : _RED_("device / fw mismatch"));
+
             } else {
                 PrintAndLogEx(NORMAL, "    Target.... %s", _YELLOW_("PM3 GENERIC"));
             }
@@ -1702,17 +1758,26 @@ void pm3_version(bool verbose, bool oneliner) {
         if (WaitForResponseTimeout(CMD_VERSION, &resp, 1000)) {
             if (IfPm3Rdv4Fw()) {
 
-                bool is_genuine_rdv4 = false;
                 // validate signature data
                 rdv40_validation_t mem;
-                if (rdv4_get_signature(&mem) == PM3_SUCCESS) {
-                    if (rdv4_validate(&mem) == PM3_SUCCESS) {
-                        is_genuine_rdv4 = true;
+                signature_e type;
+
+                if (pm3_get_signature(&mem) == PM3_SUCCESS) {
+                    if (pm3_validate(&mem, &type) == PM3_SUCCESS) {
+
+                        if (type == SIGN_RDV4) {
+                            PrintAndLogEx(NORMAL, "  Device.................... " _GREEN_("RDV4"));
+                            PrintAndLogEx(NORMAL, "  Firmware.................. " _GREEN_("RDV4"));
+                        } else if (type == SIGN_GENERIC) {
+                            PrintAndLogEx(NORMAL, "  Device.................... ", _GREEN_("GENERIC"));
+                            PrintAndLogEx(NORMAL, "  Firmware.................. ", _GREEN_("GENERIC"));
+                        } else {
+                            PrintAndLogEx(NORMAL, "  Device.................... " _RED_("Bad signature detected!"));
+                            PrintAndLogEx(NORMAL, "  Firmware.................. " _YELLOW_("N/A"));
+                        }
                     }
                 }
 
-                PrintAndLogEx(NORMAL, "  Device.................... %s", (is_genuine_rdv4) ? _GREEN_("RDV4") : _RED_("device / fw mismatch"));
-                PrintAndLogEx(NORMAL, "  Firmware.................. %s", (is_genuine_rdv4) ? _GREEN_("RDV4") : _YELLOW_("RDV4"));
                 PrintAndLogEx(NORMAL, "  External flash............ %s", IfPm3Flash() ? _GREEN_("present") : _YELLOW_("absent"));
                 PrintAndLogEx(NORMAL, "  Smartcard reader.......... %s", IfPm3Smartcard() ? _GREEN_("present") : _YELLOW_("absent"));
                 PrintAndLogEx(NORMAL, "  FPC USART for BT add-on... %s", IfPm3FpcUsartHost() ? _GREEN_("present") : _YELLOW_("absent"));

@@ -367,7 +367,7 @@ int mfc_ev1_print_signature(uint8_t *uid, uint8_t uidlen, uint8_t *signature, in
     return originality_check_print(signature, signature_len, index);
 }
 
-static int mf_read_uid(uint8_t *uid, int *uidlen, int *nxptype) {
+int mf_read_uid(uint8_t *uid, int *uidlen, int *nxptype) {
     clearCommandBuffer();
     SendCommandMIX(CMD_HF_ISO14443A_READER, ISO14A_CONNECT | ISO14A_NO_DISCONNECT, 0, 0, NULL, 0);
     PacketResponseNG resp;
@@ -2495,15 +2495,20 @@ static int CmdHF14AMfNestedStatic(const char *Cmd) {
     PrintAndLogEx(SUCCESS, "Time in check keys " _YELLOW_("%.0f") " seconds\n", (float)t2 / 1000.0);
     PrintAndLogEx(SUCCESS, "--- " _CYAN_("Enter static nested key recovery") " --------------");
 
+    // Decryption backup logic for special card 0x009080A2(keyB NT1 dist is 160 & 320, not 161 & 321).
+    bool forceDetectDist;
+
     // nested sectors
     for (trgKeyType = MF_KEY_A; trgKeyType <= MF_KEY_B; ++trgKeyType) {
         for (uint8_t sectorNo = 0; sectorNo < SectorsCnt; ++sectorNo) {
 
-            for (int i = 0; i < 1; i++) {
+            forceDetectDist = 0; // Fist decrypt, auto detect dist for NT2_1 & NT2_2.
+
+            for (int i = 0; i < 2; i++) {
 
                 if (e_sector[sectorNo].foundKey[trgKeyType]) continue;
-
-                int16_t isOK = mf_static_nested(blockNo, keyType, key, mfFirstBlockOfSector(sectorNo), trgKeyType, keyBlock);
+                
+                int16_t isOK = mf_static_nested(blockNo, keyType, key, mfFirstBlockOfSector(sectorNo), trgKeyType, keyBlock, forceDetectDist);
                 switch (isOK) {
                     case PM3_ETIMEOUT :
                         PrintAndLogEx(ERR, "command execution time out");
@@ -2512,11 +2517,15 @@ static int CmdHF14AMfNestedStatic(const char *Cmd) {
                         PrintAndLogEx(WARNING, "aborted via keyboard.");
                         break;
                     case PM3_ESOFT :
+                        // No any key found?
+                        // Try to force decryption using measured nonce instead of automatic detection (some card types may misjudge)
+                        forceDetectDist = 1;
+                        PrintAndLogEx(WARNING, "No key found, next try...");
                         continue;
                     case PM3_SUCCESS :
                         e_sector[sectorNo].foundKey[trgKeyType] = 1;
                         e_sector[sectorNo].Key[trgKeyType] = bytes_to_num(keyBlock, 6);
-
+                        i = 2; // Key found, no next retry.
                         // mf_check_keys_fast(SectorsCnt, true, true, 2, 1, keyBlock, e_sector, false, false);
                         continue;
                     default :
@@ -3017,6 +3026,10 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
     // Nested and Hardnested parameter
     uint64_t key64 = 0;
     bool calibrate = true;
+
+    // staticNested parameter
+    bool force_detect_dist;
+    int static_nested_retry_i = 0;
 
     // Attack key storage variables
     uint8_t *keyBlock = NULL;
@@ -3694,28 +3707,37 @@ tryStaticnested:
                                           (current_key_type_i == MF_KEY_B) ? 'B' : 'A');
                         }
 
-                        isOK = mf_static_nested(mfFirstBlockOfSector(sectorno), keytype, key, mfFirstBlockOfSector(current_sector_i), current_key_type_i, tmp_key);
-                        DropField();
-                        switch (isOK) {
-                            case PM3_ETIMEOUT: {
-                                PrintAndLogEx(ERR, "\nError: No response from Proxmark3");
-                                free(e_sector);
-                                free(fptr);
-                                return isOK;
-                            }
-                            case PM3_EOPABORTED: {
-                                PrintAndLogEx(WARNING, "\nButton pressed, user aborted");
-                                free(e_sector);
-                                free(fptr);
-                                return isOK;
-                            }
-                            case PM3_SUCCESS: {
-                                e_sector[current_sector_i].Key[current_key_type_i] = bytes_to_num(tmp_key, MIFARE_KEY_SIZE);
-                                e_sector[current_sector_i].foundKey[current_key_type_i] = 'C';
-                                break;
-                            }
-                            default: {
-                                break;
+                        force_detect_dist = 0; // First time to decrypt staticnested tag, we can auto detect dist by tag type.
+                        for (static_nested_retry_i = 0; static_nested_retry_i < 2; static_nested_retry_i++) {
+                            isOK = mf_static_nested(mfFirstBlockOfSector(sectorno), keytype, key, mfFirstBlockOfSector(current_sector_i), current_key_type_i, tmp_key, force_detect_dist);
+                            DropField();
+                            switch (isOK) {
+                                case PM3_ETIMEOUT: {
+                                    PrintAndLogEx(ERR, "\nError: No response from Proxmark3");
+                                    free(e_sector);
+                                    free(fptr);
+                                    return isOK;
+                                }
+                                case PM3_EOPABORTED: {
+                                    PrintAndLogEx(WARNING, "\nButton pressed, user aborted");
+                                    free(e_sector);
+                                    free(fptr);
+                                    return isOK;
+                                }
+                                case PM3_ESOFT: {
+                                    PrintAndLogEx(WARNING, "No key found, next try...");
+                                    force_detect_dist = 1;
+                                    continue;
+                                }
+                                case PM3_SUCCESS: {
+                                    e_sector[current_sector_i].Key[current_key_type_i] = bytes_to_num(tmp_key, MIFARE_KEY_SIZE);
+                                    e_sector[current_sector_i].foundKey[current_key_type_i] = 'C';
+                                    static_nested_retry_i = 2; // Key found, no next retry.
+                                    break;
+                                }
+                                default: {
+                                    break;
+                                }
                             }
                         }
                     }
@@ -6787,6 +6809,7 @@ static int CmdHF14AMfMAD(const char *Cmd) {
     bool swapmad = arg_get_lit(ctx, 5);
     bool decodeholder = arg_get_lit(ctx, 6);
     bool force = arg_get_lit(ctx, 8);
+    bool override = arg_get_lit(ctx, 9);
 
     int fnlen = 0;
     char filename[FILE_PATH_SIZE] = {0};
@@ -6874,7 +6897,7 @@ static int CmdHF14AMfMAD(const char *Cmd) {
         if (aidlen == 2 || decodeholder) {
             uint16_t mad[7 + 8 + 8 + 8 + 8] = {0};
             size_t madlen = 0;
-            if (MADDecode(dump, dump + (0x10 * MIFARE_1K_MAXBLOCK), mad, &madlen, swapmad)) {
+            if (MADDecode(dump, dump + (0x10 * MIFARE_1K_MAXBLOCK), mad, &madlen, swapmad, override)) {
                 PrintAndLogEx(ERR, "can't decode MAD");
                 free(dump);
                 return PM3_ESOFT;
@@ -6959,7 +6982,7 @@ static int CmdHF14AMfMAD(const char *Cmd) {
     if (aidlen == 2 || decodeholder) {
         uint16_t mad[7 + 8 + 8 + 8 + 8] = {0};
         size_t madlen = 0;
-        if (MADDecode(sector0, sector10, mad, &madlen, swapmad)) {
+        if (MADDecode(sector0, sector10, mad, &madlen, swapmad, override)) {
             PrintAndLogEx(ERR, "can't decode MAD");
             return PM3_ESOFT;
         }
@@ -7052,8 +7075,8 @@ int CmdHFMFNDEFRead(const char *Cmd) {
                   "Prints NFC Data Exchange Format (NDEF)",
                   "hf mf ndefread -> shows NDEF parsed data\n"
                   "hf mf ndefread -vv -> shows NDEF parsed and raw data\n"
+                  "hf mf ndefread -f myfilename                   -> save raw NDEF to file\n"
                   "hf mf ndefread --aid e103 -k ffffffffffff -b -> shows NDEF data with custom AID, key and with key B\n"
-                  "hf mf ndefread -f myfilename -> save raw NDEF to file"
                  );
 
     void *argtable[] = {
@@ -7063,6 +7086,7 @@ int CmdHFMFNDEFRead(const char *Cmd) {
         arg_str0("k",  "key",      "<key>", "replace default key for NDEF"),
         arg_lit0("b",  "keyb",     "use key B for access sectors (by default: key A)"),
         arg_str0("f", "file", "<fn>", "save raw NDEF to file"),
+        arg_lit0(NULL, "override", "override failed crc check"),
         arg_param_end
     };
     CLIExecWithReturn(ctx, Cmd, argtable, true);
@@ -7083,6 +7107,7 @@ int CmdHFMFNDEFRead(const char *Cmd) {
     char filename[FILE_PATH_SIZE] = {0};
     CLIParamStrToBuf(arg_get_str(ctx, 5), (uint8_t *)filename, FILE_PATH_SIZE, &fnlen);
 
+    bool override = arg_get_lit(ctx, 6);
     CLIParserFree(ctx);
 
     uint16_t ndef_aid = NDEF_MFC_AID;
@@ -7126,12 +7151,15 @@ int CmdHFMFNDEFRead(const char *Cmd) {
     int res = MADCheck(sector0, sector10, verbose, &haveMAD2);
     if (res != PM3_SUCCESS) {
         PrintAndLogEx(ERR, "MAD error %d", res);
-        return res;
+        if (override)
+            PrintAndLogEx(INFO, "overriding CRC check");
+        else
+            return res;
     }
 
     uint16_t mad[7 + 8 + 8 + 8 + 8] = {0};
     size_t madlen = 0;
-    res = MADDecode(sector0, sector10, mad, &madlen, false);
+    res = MADDecode(sector0, sector10, mad, &madlen, false, override);
     if (res != PM3_SUCCESS) {
         PrintAndLogEx(ERR, "can't decode MAD");
         return res;
@@ -7561,7 +7589,7 @@ int CmdHFMFNDEFWrite(const char *Cmd) {
     // decode MAD v1
     uint16_t mad[7 + 8 + 8 + 8 + 8] = {0};
     size_t madlen = 0;
-    res = MADDecode(sector0, sector10, mad, &madlen, false);
+    res = MADDecode(sector0, sector10, mad, &madlen, false, false);
     if (res != PM3_SUCCESS) {
         PrintAndLogEx(ERR, "can't decode MAD");
         return res;
@@ -8441,7 +8469,7 @@ static int CmdHF14AMfView(const char *Cmd) {
         // decode MAD v1
         uint16_t mad[7 + 8 + 8 + 8 + 8] = {0};
         size_t madlen = 0;
-        res = MADDecode(dump, NULL, mad, &madlen, false);
+        res = MADDecode(dump, NULL, mad, &madlen, false, true);
         if (res != PM3_SUCCESS) {
             PrintAndLogEx(ERR, "can't decode MAD");
             return res;
@@ -10429,30 +10457,36 @@ static int CmdHF14AMfInfo(const char *Cmd) {
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08s, sizeof(fkey)) == 0
                    && card.sak == 0x08 && memcmp(blockdata + 5, "\x08\x04\x00", 3) == 0
                    && (blockdata[8] == 0x03 || blockdata[8] == 0x04 || blockdata[8] == 0x05) && blockdata[15] == 0x90) {
+            // 0390/0490/0590 with RF08S backdoor key
             PrintAndLogEx(SUCCESS, "Fudan FM11RF08S %02X%02X", blockdata[8], blockdata[15]);
             expect_static_enc_nonce = true;
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08s, sizeof(fkey)) == 0
                    && card.sak == 0x08 && memcmp(blockdata + 5, "\x08\x04\x00", 3) == 0
                    && (blockdata[8] == 0x03 || blockdata[8] == 0x04) && blockdata[15] == 0x91) {
+            // 0391/0491 with RF08S backdoor key
             PrintAndLogEx(SUCCESS, "Fudan FM11RF08 %02X%02X with advanced verification method", blockdata[8], blockdata[15]);
             expect_static_enc_nonce = false;
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08s, sizeof(fkey)) == 0
                    && card.sak == 0x08 && memcmp(blockdata + 5, "\x00\x03\x00\x10", 4) == 0
                    && blockdata[15] == 0x90) {
+            // 1090 with RF08S backdoor key
             PrintAndLogEx(SUCCESS, "Fudan FM11RF08S-7B %02X%02X", blockdata[8], blockdata[15]);
             expect_static_enc_nonce = true;
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
                    && card.sak == 0x08 && memcmp(blockdata + 5, "\x08\x04\x00", 3) == 0
-                   && blockdata[15] == 0x98) {
+                   && (blockdata[8] == 0x04 || blockdata[8] == 0x05) && blockdata[15] == 0x98) {
+            // 0498/0598 with RF08 backdoor key
             PrintAndLogEx(SUCCESS, "Fudan FM11RF08S %02X%02X", blockdata[8], blockdata[15]);
             expect_static_enc_nonce = true;
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
                    && card.sak == 0x08 && memcmp(blockdata + 5, "\x08\x04\x00", 3) == 0
                    && (blockdata[8] >= 0x01 && blockdata[8] <= 0x03) && blockdata[15] == 0x1D) {
+            // 011D/021D/031D with RF08 backdoor key
             PrintAndLogEx(SUCCESS, "Fudan FM11RF08");
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
                    && card.sak == 0x08 && memcmp(blockdata + 5, "\x00\x01\x00\x10", 4) == 0
                    && blockdata[15] == 0x1D) {
+            // 101D with RF08 backdoor key
             PrintAndLogEx(SUCCESS, "Fudan FM11RF08-7B");
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k32n, sizeof(fkey)) == 0
                    && card.sak == 0x18 && memcmp(blockdata + 5, "\x18\x02\x00\x46\x44\x53\x37\x30\x56\x30\x31", 11) == 0) {
@@ -10460,6 +10494,9 @@ static int CmdHF14AMfInfo(const char *Cmd) {
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k32n2, sizeof(fkey)) == 0
                    && card.sak == 0x18 && memcmp(blockdata + 5, "\x18\x02\x00\x46\x44\x53\x37\x30\x56\x30\x31", 11) == 0) {
             PrintAndLogEx(SUCCESS, "Fudan FM11RF32N (variant)");
+        } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
+                   && card.sak == 0x19 && memcmp(blockdata + 8, "\x69\x44\x4C\x4B\x56\x32\x01\x92", 8) == 0) {
+            PrintAndLogEx(SUCCESS, "Fudan-based iDTRONICS IDT M1K ? (SAK=19)");
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
                    && card.sak == 0x20 && memcmp(blockdata + 8, "\x62\x63\x64\x65\x66\x67\x68\x69", 8) == 0) {
             PrintAndLogEx(SUCCESS, "Fudan FM11RF32 (SAK=20)");
@@ -10470,6 +10507,11 @@ static int CmdHF14AMfInfo(const char *Cmd) {
             // Note: it also has ATS =
             // 10 78 80 90 02 20 90 00 00 00 00 00 + UID + CRC
             PrintAndLogEx(SUCCESS, "Fudan FM1208-10");
+        } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
+                   && card.sak == 0x28 && memcmp(blockdata + 5, "\x28\x04\x00\x90\x93\x56\x09\x00\x00\x00\x00", 11) == 0) {
+            // Note: it also has ATS =
+            // 0E 28 B0 20 90 00 00 00 00 00 + UID + CRC
+            PrintAndLogEx(SUCCESS, "Fudan FM1216-110");
         } else if (fKeyType == MF_KEY_BD && memcmp(fkey, k08, sizeof(fkey)) == 0
                    && card.sak == 0x28 && memcmp(blockdata + 5, "\x28\x04\x00\x90\x53\xB7\x0C\x00\x00\x00\x00", 11) == 0) {
             // Note: it also has ATS =
@@ -10860,20 +10902,39 @@ static int CmdHF14AMfISEN(const char *Cmd) {
     return PM3_SUCCESS;
 }
 
-static int CmdHF14AMfBambuKeys(const char *Cmd) {
+static int CmdHF14AMfKeyGen(const char *Cmd) {
     CLIParserContext *ctx;
-    CLIParserInit(&ctx, "hf mf bambukeys",
-                  "Generate keys for a Bambu Lab filament tag",
-                  "hf mf bambukeys -r\n"
-                  "hf mf bambukeys -r -d\n"
-                  "hf mf bambukeys -u 11223344\n"
+
+    char kdf_list[256] = {0};
+    snprintf(kdf_list, sizeof(kdf_list), "Available KDFs:");
+
+    const kdf_t *kdf_table = get_kdf_table();
+    size_t kdf_table_size = get_kdf_table_size();
+
+    for (size_t i = 0; i < kdf_table_size; i++) {
+        char tmp[128];
+        snprintf(tmp, sizeof(tmp), "\n    %zu - %s", i, kdf_table[i].name);
+        strncat(kdf_list, tmp, sizeof(kdf_list) - strlen(kdf_list) - 1);
+    }
+
+    char help_text[512] = {0};
+    snprintf(help_text, sizeof(help_text),
+             "Generate key table for some known KDFs\n%s", kdf_list);
+
+    CLIParserInit(&ctx, "hf mf keygen",
+                  help_text,
+                  "hf mf keygen -r -k 0\n"
+                  "hf mf keygen -r -d -k 0\n"
+                  "hf mf keygen -u 11223344 -k 0\n"
+                  "hf mf keygen -u 11223344 -k 1\n"
                  );
 
     void *argtable[] = {
         arg_param_begin,
-        arg_str0("u", "uid", "<hex>", "UID (4 hex bytes)"),
+        arg_str0("u", "uid", "<hex>", "UID 4/7 hex bytes"),
         arg_lit0("r", NULL, "Read UID from tag"),
         arg_lit0("d", NULL, "Dump keys to file"),
+        arg_int0("k", "kdf", "<dec>", "KDF algorithm"),
         arg_param_end
     };
     CLIExecWithReturn(ctx, Cmd, argtable, true);
@@ -10883,7 +10944,15 @@ static int CmdHF14AMfBambuKeys(const char *Cmd) {
     CLIGetHexWithReturn(ctx, 1, uid, &u_len);
     bool use_tag = arg_get_lit(ctx, 2);
     bool dump_keys = arg_get_lit(ctx, 3);
+    int kdf_idx = arg_get_int_def(ctx, 4, -1);
     CLIParserFree(ctx);
+
+    if (kdf_idx < 0 || kdf_idx >= kdf_table_size) {
+        PrintAndLogEx(WARNING, "Invalid KDF algorithm index. Must be 0-%zu", kdf_table_size - 1);
+        return PM3_EINVARG;
+    }
+
+    kdf_t kdf = kdf_table[kdf_idx];
 
     if (use_tag) {
         // read uid from tag
@@ -10893,28 +10962,51 @@ static int CmdHF14AMfBambuKeys(const char *Cmd) {
         }
     }
 
-    if (u_len != 4) {
-        PrintAndLogEx(WARNING, "Key must be 4 hex bytes");
+    if (u_len != kdf.uid_length) {
+        PrintAndLogEx(WARNING, "UID with length %d is required for %s",
+                      kdf.uid_length,
+                      kdf.name);
         return PM3_EINVARG;
     }
 
     PrintAndLogEx(INFO, "-----------------------------------");
-    PrintAndLogEx(INFO, " UID 4b... " _YELLOW_("%s"), sprint_hex(uid, 4));
+    PrintAndLogEx(INFO, " KDF...... " _YELLOW_("%s"), kdf.name);
+    PrintAndLogEx(INFO, " UID %db... " _YELLOW_("%s"), u_len, sprint_hex(uid, u_len));
     PrintAndLogEx(INFO, "-----------------------------------");
 
-    uint8_t keys[32 * 6];
-    mfc_algo_bambu_all(uid, (void *)keys);
-
-    for (int block = 0; block < 32; block++) {
-        PrintAndLogEx(INFO, "%d: %012" PRIX64, block, bytes_to_num(keys + (block * 6), 6));
+    int sector_count = kdf.sector_count;
+    uint8_t *keys = calloc(sector_count * 2 * 6, sizeof(uint8_t));
+    if (keys == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
     }
+
+    kdf.kdf_function(uid, keys);
+
+    sector_t *e_sector = NULL;
+    if (initSectorTable(&e_sector, sector_count) != PM3_SUCCESS) {
+        free(keys);
+        return PM3_EMALLOC;
+    }
+
+    // write required info for table
+    for (int i = 0; i < sector_count; i++) {
+        e_sector[i].foundKey[0] = true;
+        e_sector[i].foundKey[1] = true;
+        e_sector[i].Key[0] = bytes_to_num(keys + (i * 6), 6);
+        e_sector[i].Key[1] = bytes_to_num(keys + ((sector_count + i) * 6), 6);
+    }
+
+    printKeyTable(sector_count, e_sector);
 
     if (dump_keys) {
         char fn[FILE_PATH_SIZE] = {0};
-        snprintf(fn, sizeof(fn), "hf-mf-%s-key", sprint_hex_inrow(uid, 4));
-        saveFileEx(fn, ".bin", keys, 32 * 6, spDump);
+        snprintf(fn, sizeof(fn), "hf-mf-%s-key", sprint_hex_inrow(uid, u_len));
+        saveFileEx(fn, ".bin", keys, sector_count * 2 * 6, spDump);
     }
 
+    free(keys);
+    free(e_sector);
     return PM3_SUCCESS;
 }
 
@@ -10934,7 +11026,7 @@ static command_t CommandTable[] = {
     {"fchk",        CmdHF14AMfChk_fast,     IfPm3Iso14443a,  "Check keys fast, targets all keys on card"},
     {"decrypt",     CmdHf14AMfDecryptBytes, AlwaysAvailable, "Decrypt Crypto1 data from sniff or trace"},
     {"supercard",   CmdHf14AMfSuperCard,    IfPm3Iso14443a,  "Extract info from a `super card`"},
-    {"bambukeys",   CmdHF14AMfBambuKeys,    AlwaysAvailable, "Generate key table for Bambu Lab filament tag"},
+    {"keygen",      CmdHF14AMfKeyGen,       AlwaysAvailable, "Generate key table for some known KDFs"},
     {"-----------", CmdHelp,                IfPm3Iso14443a,  "----------------------- " _CYAN_("operations") " -----------------------"},
     {"auth4",       CmdHF14AMfAuth4,        IfPm3Iso14443a,  "ISO14443-4 AES authentication"},
     {"acl",         CmdHF14AMfAcl,          AlwaysAvailable, "Decode and print MIFARE Classic access rights bytes"},

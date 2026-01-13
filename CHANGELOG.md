@@ -3,10 +3,54 @@ All notable changes to this project will be documented in this file.
 This project uses the changelog in accordance with [keepchangelog](http://keepachangelog.com/). Please use this to write notable changes, which is not the same as git commit log...
 
 ## [unreleased][unreleased]
+- Added `--` arg separator to client to pass following args to scripts (@doegox)
+- Fixed ISO14443-4 type B NDEF workflow + parsing (@team-orangeBlue)
+- Added Snapmaker U1 filament spool KDF in `hf mf keygen` (@Foxushka)
+- Replaced `hf mf bambukeys` with `hf mf keygen` with multiple KDFs support (@Foxushka)
+- Fix `hf seos adf/pacs` handling of cards with different diversifier lengths and different ADF OIDs (@nvx)
+- Added `data qrcode` - to generate QR codes from inside the pm3 client (@iceman1001)
+- Fix unicode on mingw/proxspace (@nvx)
+- Fix `hf felica raw` - wrong length calculationes. Thanks @dxl for the solutions! (@iceman1001)
+- Added basic QR code generation support. Thanks @mistial-dev for the idea! (@iceman1001)
+- Added identification of NDEF/Open print tag record (@iceman1001)
+- Added support for Bruce dump files [.rfid] (@iceman1001)
+- Added script `read_t-union.py` (@klks)
+- Added better ECP configuration aliases (@kormax)
+- Added `hf 14b config` (@kormax);
+- Added polling loop annotation support to `hf 14b config` (@kormax);
+- Updated id48lib (adds unit tests, better build management) (@henrygab)
+- Added two trace files for Ultralight AES (@iceman1001)
+- Added support for Ultralight AES secure messaing in `hf 14a raw` (@iceman1001)
+- Added support for Ultralight AES secure messaging in `hf mfu info/rdbl/wrbl/dump/ndefread/wipe/setkey` (@iceman1001)
+- Added support for Ultralight AES auth in `hf mfu info/rdbl/wrbl/dump/ndefread/wipe/setkey` (@doegox)
+- Added Ultralight AES basic DataProtKey emulation support (@doegox)
+- Changed `mem info` and how the signature handling is done (@iceman1001)
+- Added `client/resources/pm3_generic_private_key.pem` in order to self-sign a modded device (@iceman1001)
+- Fix `hf mfdes value --op clear` commands for clearing more than 0x80000000 values and getfilesettings mac mode (@merlokk)
+- Added ATR fingerprinting to `hf 14a/14b info` (@doegox)
+- Added `Verkada 40-bit` format (@aaronmaxlevy)
+- Added `hf seos write` command (@aaronjamt)
+- Added `hf seos sim` command (@aaronjamt)
+- Fix `hf mf staticnested` faild to find a KeyB (@xianglin1998)
+- Fix errors(jansson) for MSYS2+UCRT compiler (@xianglin1998)
+
+## [Phrack.4.20728][2025-09-11]
+- Added `unofficial desfire bible` document (@mistial-dev)
+- Fixed desfire value file operations (@mistial-dev)
+- Added script `pm3_online_tests.sh` (@mistial-dev)
+- Changed `lf t55xx restore` - now skips writing block0 if its all zeros (@iceman1001)
+- Added `HID Simplex Grinnell 36-bit` - Improved Simplex decoder (@datafx, @henrygab)
+- Changed `lf search` - also test for chipset even if there was just signal noice (@iceman1001)
+- Added detection of PCF 7961 , thanks progman (@iceman1001)
+- Changed `reveng -g` - now correctly take 1024 hexstring as input (@iceman1001)
+- Added `--override` parameter to NDEF read for overriding MAD CRC check (@iceman1001)
+- Added `hf saflok` commands (@stiebeljoshua)
+- Added `ntag_clean.lua` script for easier NTAG memory wipe (@trigat)
+- Changed from Bigbuf malloc to Bigbuf calloc calls on device side (@iceman1001)
 - Added `lf t55xx view` - now viewing of T55XX dump files is possible (@iceman1001)
 - Fixed `lf indala cone` - now writing the right bits when using `--fc` and `--cn`
 - Changed readline hack logic for async dbg msg to be ready for readline 8.3 (@doegox)
-- Improved To avoid conflicts with ModemManager on Linux, is recommended to masking the service (@grugnoymeme)
+- Changed documentation to avoid conflicts with ModemManager on Linux, is recommended to masking the service (@grugnoymeme)
 - Changed `data crypto` - now also handles AES-256 (@iceman1001)
 - Changed `hf mfdes info` - add recognition of Swissbit iShield Key Mifare (@ah01)
 - Changed `hf mf info` - add detection for unknown backdoor keys and for some backdoor variants (@doegox)
@@ -26,6 +70,10 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 - Added `hf felica liteauth` - now support FeliCa Lite-S authentication(@q0jt)
 - Added `he felica dump` - partial support for dumping all blocks from unauth readable services (@zinongli)
 - Changed `hf 14b calypso` - now don't break the file id loop when one file can't be selected or read. Add new file ids to iterate through (@zinongli)
+- Fixed `script run hf_mfu_amiibo_restore.lua` - broken reference to a dependency. (@CorySolovewicz)
+- Changed `/client/update_amiibo_tools_lua.py` - updated the output to make things more clear. (@CorySolovewicz)
+- Changed `/client/lualibs/amiibo_tools.lua` - updated to the most recent data. (@CorySolovewicz)
+- Changed `/client/pyscripts/mf_backdoor_dump.py` - fixed output checks to handle whitespace variations. fixed output of card dump. (@robo-w)
 
 
 ## [Daddy Iceman.4.20469][2025-06-16]

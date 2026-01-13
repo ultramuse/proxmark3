@@ -51,8 +51,6 @@
 #define FELICA_SERVICE_ATTRIBUTE_PURSE_SUBFIELD (0b000110)
 
 
-#define AddCrc(data, len) compute_crc(CRC_FELICA, (data), (len), (data)+(len)+1, (data)+(len))
-
 static int CmdHelp(const char *Cmd);
 static felica_card_select_t last_known_card;
 
@@ -468,18 +466,40 @@ static int CmdHFFelicaInfo(const char *Cmd) {
  */
 static void clear_and_send_command(uint8_t flags, uint16_t datalen, uint8_t *data, bool verbose) {
     uint16_t numbits = 0;
+    uint16_t payload_len = 0;
+    uint8_t *payload = data;
+
+    // ARMSRC implementation adds FeliCa preamble and length automatically (felica_sendraw:575-576)
+    // A bunch of code in this module adds length byte at data[0] regardless of that, which is wrong
+    // This is a workaround to extract the actual payload correctly so that length byte isn't repeated
+    // It also strips CRC if present, as ARMSRC adds it too
+    if (data && datalen) {
+        if (datalen >= data[0] && data[0] > 0) {
+            payload_len = data[0] - 1;
+            if (payload_len > datalen - 1) {
+                payload_len = datalen - 1;
+            }
+            payload = data + 1;
+        } else {
+            payload_len = datalen;
+        }
+    }
+
     clearCommandBuffer();
     if (verbose) {
-        PrintAndLogEx(INFO, "Send raw command - Frame: %s", sprint_hex(data, datalen));
+        PrintAndLogEx(INFO, "Send raw command - Frame: %s", sprint_hex(payload, payload_len));
     }
-    SendCommandMIX(CMD_HF_FELICA_COMMAND, flags, (datalen & 0xFFFF) | (uint32_t)(numbits << 16), 0, data, datalen);
+    SendCommandMIX(CMD_HF_FELICA_COMMAND, flags, (payload_len & 0xFFFF) | (uint32_t)(numbits << 16), 0, payload, payload_len);
 }
 
 /**
  * Prints read-without-encryption response.
  * @param rd_noCry_resp Response frame.
+ * @param block_index Optional explicit block index (UINT16_MAX to use tag value)
  */
-static void print_rd_plain_response(felica_read_without_encryption_response_t *rd_noCry_resp) {
+static void print_rd_plain_response(felica_read_without_encryption_response_t *rd_noCry_resp, uint16_t block_index) {
+
+    uint16_t display_block = block_index;
 
     if (rd_noCry_resp->status_flags.status_flag1[0] == 00 &&
             rd_noCry_resp->status_flags.status_flag2[0] == 00) {
@@ -489,15 +509,14 @@ static void print_rd_plain_response(felica_read_without_encryption_response_t *r
         char bl_data[256];
         strncpy(bl_data, temp, sizeof(bl_data) - 1);
 
-        char bl_element_number[4];
-        temp = sprint_hex(rd_noCry_resp->block_element_number, sizeof(rd_noCry_resp->block_element_number));
-        strncpy(bl_element_number, temp, sizeof(bl_element_number) - 1);
 
-        PrintAndLogEx(INFO, "  %s  | %s  ", bl_element_number, bl_data);
+        PrintAndLogEx(INFO, "  %04X | %s  ", display_block, bl_data);
     } else {
-        PrintAndLogEx(SUCCESS, "IDm... %s", sprint_hex_inrow(rd_noCry_resp->frame_response.IDm, sizeof(rd_noCry_resp->frame_response.IDm)));
-        PrintAndLogEx(SUCCESS, "  Status flag 1... %s", sprint_hex(rd_noCry_resp->status_flags.status_flag1, sizeof(rd_noCry_resp->status_flags.status_flag1)));
-        PrintAndLogEx(SUCCESS, "  Status flag 2... %s", sprint_hex(rd_noCry_resp->status_flags.status_flag1, sizeof(rd_noCry_resp->status_flags.status_flag1)));
+        char sf1[8];
+        char sf2[8];
+        snprintf(sf1, sizeof(sf1), "%02X", rd_noCry_resp->status_flags.status_flag1[0]);
+        snprintf(sf2, sizeof(sf2), "%02X", rd_noCry_resp->status_flags.status_flag2[0]);
+        PrintAndLogEx(INFO, "  %04X | Status flag 1... %s; Status flag 2... %s", display_block, sf1, sf2);
     }
 }
 
@@ -546,7 +565,12 @@ int send_rd_plain(uint8_t flags, uint16_t datalen, uint8_t *data, bool verbose, 
         return PM3_ERFTRANS;
     } else {
         memcpy(rd_noCry_resp, (felica_read_without_encryption_response_t *)resp.data.asBytes, sizeof(felica_read_without_encryption_response_t));
-        rd_noCry_resp->block_element_number[0] = data[15];
+          if (rd_noCry_resp->frame_response.cmd_code[0] != 0x07) {
+            PrintAndLogEx(FAILED, "Bad response cmd 0x%02X @ 0x%04X.",
+                          rd_noCry_resp->frame_response.cmd_code[0], 0x00);
+            PrintAndLogEx(INFO, "This is either a normal signal issue, or an issue caused by wrong parameter. Please try again.");
+            return PM3_ERFTRANS;
+        }
         return PM3_SUCCESS;
     }
 }
@@ -785,8 +809,6 @@ static int CmdHFFelicaAuthentication1(const char *Cmd) {
     // Add M1c Challenge to frame
     memcpy(data + 16, output, sizeof(output));
 
-    AddCrc(data, datalen);
-    datalen += 2;
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
 
     PrintAndLogEx(INFO, "Client send AUTH1 frame: %s", sprint_hex(data, datalen));
@@ -974,8 +996,6 @@ static int CmdHFFelicaAuthentication2(const char *Cmd) {
     // Add M4c Challenge to frame
     memcpy(data + 10, m4c, sizeof(m4c));
 
-    AddCrc(data, datalen);
-    datalen += 2;
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
 
     PrintAndLogEx(INFO, "Client Send AUTH2 Frame: %s", sprint_hex(data, datalen));
@@ -1147,8 +1167,6 @@ static int CmdHFFelicaWritePlain(const char *Cmd) {
     }
 
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
-    AddCrc(data, datalen);
-    datalen += 2;
 
     felica_status_response_t wr_noCry_resp;
     if (send_wr_plain(flags, datalen, data, 1, &wr_noCry_resp) == PM3_SUCCESS) {
@@ -1300,24 +1318,17 @@ static int CmdHFFelicaReadPlain(const char *Cmd) {
 
         for (uint16_t i = 0x00; i < last_blockno; i++) {
             data[15] = i;
-            AddCrc(data, datalen);
-            datalen += 2;
             felica_read_without_encryption_response_t rd_noCry_resp;
             if ((send_rd_plain(flags, datalen, data, 0, &rd_noCry_resp) == PM3_SUCCESS)) {
-                if (rd_noCry_resp.status_flags.status_flag1[0] == 0 && rd_noCry_resp.status_flags.status_flag2[0] == 0) {
-                    print_rd_plain_response(&rd_noCry_resp);
-                }
+                print_rd_plain_response(&rd_noCry_resp, i);
             } else {
                 break;
             }
-            datalen -= 2;
         }
     } else {
-        AddCrc(data, datalen);
-        datalen += 2;
         felica_read_without_encryption_response_t rd_noCry_resp;
         if (send_rd_plain(flags, datalen, data, 1, &rd_noCry_resp) == PM3_SUCCESS) {
-            print_rd_plain_response(&rd_noCry_resp);
+            print_rd_plain_response(&rd_noCry_resp, bnlen ? bn[0] : 0);
         }
     }
     return PM3_SUCCESS;
@@ -1368,9 +1379,6 @@ static int CmdHFFelicaRequestResponse(const char *Cmd) {
     if (!custom_IDm && !check_last_idm(data, datalen)) {
         return PM3_EINVARG;
     }
-
-    AddCrc(data, datalen);
-    datalen += 2;
 
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
     clear_and_send_command(flags, datalen, data, 0);
@@ -1472,8 +1480,6 @@ static int CmdHFFelicaRequestSpecificationVersion(const char *Cmd) {
         return PM3_EINVARG;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
 
     clear_and_send_command(flags, datalen, data, 0);
@@ -1576,8 +1582,6 @@ static int CmdHFFelicaResetMode(const char *Cmd) {
         return PM3_EINVARG;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
 
     clear_and_send_command(flags, datalen, data, 0);
@@ -1647,8 +1651,6 @@ static int CmdHFFelicaRequestSystemCode(const char *Cmd) {
         return PM3_EINVARG;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW);
 
     clear_and_send_command(flags, datalen, data, 0);
@@ -1725,9 +1727,8 @@ static int CmdHFFelicaDump(const char *Cmd) {
 
         data_service_dump[10] = cursor & 0xFF;
         data_service_dump[11] = cursor >> 8;
-        AddCrc(data_service_dump, service_datalen);
 
-        if (send_dump_sv_plain(flags, service_datalen + 2, data_service_dump, 0,
+        if (send_dump_sv_plain(flags, service_datalen, data_service_dump, 0,
                                &resp, false) != PM3_SUCCESS) {
             PrintAndLogEx(FAILED, "No response at cursor 0x%04X", cursor);
             return PM3_ERFTRANS;
@@ -1793,11 +1794,10 @@ static int CmdHFFelicaDump(const char *Cmd) {
                     uint16_t last_blockno = 0xFF;
                     for (uint16_t i = 0x00; i < last_blockno; i++) {
                         data_block_dump[15] = i;
-                        AddCrc(data_block_dump, block_datalen);
                         felica_read_without_encryption_response_t rd_noCry_resp;
-                        if ((send_rd_plain(flags, block_datalen + 2, data_block_dump, 0, &rd_noCry_resp) == PM3_SUCCESS)) {
+                        if ((send_rd_plain(flags, block_datalen, data_block_dump, 0, &rd_noCry_resp) == PM3_SUCCESS)) {
                             if (rd_noCry_resp.status_flags.status_flag1[0] == 0 && rd_noCry_resp.status_flags.status_flag2[0] == 0) {
-                                print_rd_plain_response(&rd_noCry_resp);
+                                print_rd_plain_response(&rd_noCry_resp, i);
                             } else {
                                 break; // no more blocks to read
                             }
@@ -1919,13 +1919,11 @@ static int CmdHFFelicaRequestService(const char *Cmd) {
         // send 32 calls
         for (uint8_t i = 1; i < 32; i++) {
             data[10] = i;
-            AddCrc(data, datalen);
-            send_request_service(flags, datalen + 2, data, 1);
+            send_request_service(flags, datalen, data, 1);
         }
 
     } else {
-        AddCrc(data, datalen);
-        send_request_service(flags, datalen + 2, data, 1);
+        send_request_service(flags, datalen, data, 1);
     }
 
     return PM3_SUCCESS;
@@ -1955,8 +1953,7 @@ static int CmdHFFelicaDumpServiceArea(const char *Cmd) {
     if (!check_last_idm(data, datalen))
         return PM3_EINVARG;
 
-    PrintAndLogEx(HINT, "Area and service code are printed in big endian.");
-    PrintAndLogEx(HINT, "Don't forget to convert to little endian when using hf felica rdbl.");
+    PrintAndLogEx(HINT, "Area and service codes are printed in network order.");
     PrintAndLogEx(INFO, "┌───────────────────────────────────────────────");
 
     uint8_t flags = FELICA_APPEND_CRC | FELICA_RAW;
@@ -1973,9 +1970,8 @@ static int CmdHFFelicaDumpServiceArea(const char *Cmd) {
         /* insert cursor LE */
         data[10] = cursor & 0xFF;
         data[11] = cursor >> 8;
-        AddCrc(data, datalen);
 
-        if (send_dump_sv_plain(flags, datalen + 2, data, 0,
+        if (send_dump_sv_plain(flags, datalen, data, 0,
                                &resp, false) != PM3_SUCCESS) {
             PrintAndLogEx(FAILED, "No response at cursor 0x%04X", cursor);
             return PM3_ERFTRANS;
@@ -1989,7 +1985,9 @@ static int CmdHFFelicaDumpServiceArea(const char *Cmd) {
         }
 
         uint8_t len = resp.frame_response.length[0];
-        uint16_t node_code = resp.payload[0] | (resp.payload[1] << 8);
+        uint16_t node_code = resp.payload[0] | (resp.payload[1] << 8);      /* LE for traversal */
+        uint16_t node_code_net = (resp.payload[0] << 8) | resp.payload[1];   /* BE for display */
+        uint16_t node_number = node_code >> 6;                               /* upper 10 bits in host order */
 
         if (node_code == 0xFFFF) break;          /* end-marker */
 
@@ -2010,13 +2008,16 @@ static int CmdHFFelicaDumpServiceArea(const char *Cmd) {
         /* ----- print --------------------------------------------------- */
         if (len == 0x0E) {                          /* AREA node */
             uint16_t end_code = resp.payload[2] | (resp.payload[3] << 8);
-            PrintAndLogEx(INFO, "%sAREA_%04X", prefix, node_code >> 6);
+            uint16_t end_number = end_code >> 6;
+            PrintAndLogEx(INFO, "%sAREA_%02X%02X%02X%02X (%u-%u)", prefix,
+                          resp.payload[0], resp.payload[1], resp.payload[2], resp.payload[3],
+                          node_number, end_number);
 
             if (depth < 7) {
                 area_end_stack[++depth] = end_code;
             }
         } else if (len == 0x0C) {                                /* SERVICE */
-            PrintAndLogEx(INFO, "%ssvc_%04X", prefix, node_code);
+            PrintAndLogEx(INFO, "%sSVC_%04X (%u)", prefix, node_code_net, node_number);
         } else {
             PrintAndLogEx(FAILED, "Unexpected length 0x%02X @ 0x%04X",
                           len, cursor);
@@ -2311,7 +2312,7 @@ static int send_rd_multiple_plain(uint8_t flags, uint16_t datalen, uint8_t *data
         return PM3_ERFTRANS;
     }
 
-    uint8_t block_data[FELICA_BLK_SIZE*4];
+    uint8_t block_data[FELICA_BLK_SIZE * 4];
     memset(block_data, 0, sizeof(block_data));
 
     uint8_t outlen = 0;
@@ -2453,13 +2454,13 @@ static int write_with_mac(
     const uint8_t blk_number,
     const uint8_t *block_data,
     uint8_t *out) {
-        
+
     uint8_t initialize_blk[FELICA_BLK_HALF];
     memset(initialize_blk, 0, sizeof(initialize_blk));
-    
+
     uint8_t wcnt[3];
     memcpy(wcnt, counter, 3);
-    
+
     memcpy(initialize_blk, wcnt, sizeof(wcnt));
     initialize_blk[4] = blk_number;
     initialize_blk[6] = 0x91;
@@ -2471,7 +2472,7 @@ static int write_with_mac(
         return ret;
     }
 
-    uint8_t payload[FELICA_BLK_SIZE*2];
+    uint8_t payload[FELICA_BLK_SIZE * 2];
     memset(payload, 0, sizeof(payload));
 
     memcpy(payload, block_data, FELICA_BLK_SIZE);
@@ -2503,14 +2504,11 @@ static int felica_internal_authentication(
         return PM3_ERFTRANS;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
-
     uint8_t flags = (FELICA_APPEND_CRC | FELICA_RAW | FELICA_NO_DISCONNECT);
 
     felica_status_response_t res;
     if (send_wr_plain(flags, datalen, data, false, &res) != PM3_SUCCESS) {
-        return PM3_ERFTRANS; 
+        return PM3_ERFTRANS;
     }
 
     if (res.status_flags.status_flag1[0] != 0x00 && res.status_flags.status_flag2[0] != 0x00) {
@@ -2527,10 +2525,7 @@ static int felica_internal_authentication(
         return PM3_ERFTRANS;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
-
-    uint8_t pd[FELICA_BLK_SIZE*sizeof(blk_numbers2)];
+    uint8_t pd[FELICA_BLK_SIZE * sizeof(blk_numbers2)];
     memset(pd, 0, sizeof(pd));
 
     ret = send_rd_multiple_plain(flags, datalen, data, pd);
@@ -2565,7 +2560,7 @@ static int felica_internal_authentication(
 
     if (memcmp(mac_blk, mac, FELICA_BLK_HALF) != 0) {
         PrintAndLogEx(ERR, "\nInternal Authenticate: " _RED_("Failed"));
-        return PM3_ERFTRANS;   
+        return PM3_ERFTRANS;
     }
 
     PrintAndLogEx(SUCCESS, "Internal Authenticate: " _GREEN_("OK"));
@@ -2593,9 +2588,6 @@ static int felica_external_authentication(
         return PM3_ERFTRANS;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
-
     uint8_t wcnt_blk[FELICA_BLK_SIZE];
     ret = send_rd_multiple_plain(flags, datalen, data, wcnt_blk);
     if (ret) {
@@ -2607,7 +2599,7 @@ static int felica_external_authentication(
 
     ext_auth[0] = 1; // After Authenticate
 
-    uint8_t mac_w[FELICA_BLK_SIZE*2];
+    uint8_t mac_w[FELICA_BLK_SIZE * 2];
 
     ret = write_with_mac(ctx, auth_ctx, wcnt_blk, FELICA_BLK_NUMBER_STATE, ext_auth, mac_w);
     if (ret) {
@@ -2621,16 +2613,13 @@ static int felica_external_authentication(
         return PM3_ERFTRANS;
     }
 
-    AddCrc(data, datalen);
-    datalen += 2;
-
     if (keep == false) {
         flags &= ~FELICA_NO_DISCONNECT;
     }
 
     felica_status_response_t res;
     if (send_wr_plain(flags, datalen, data, false, &res) != PM3_SUCCESS) {
-        return PM3_ERFTRANS; 
+        return PM3_ERFTRANS;
     }
 
     if (res.status_flags.status_flag1[0] != 0x00 && res.status_flags.status_flag2[0] != 0x00) {
@@ -3097,12 +3086,12 @@ static int CmdHFFelicaCmdRaw(const char *Cmd) {
     CLIGetHexWithReturn(ctx, 7, data, &datalen);
     CLIParserFree(ctx);
 
+    uint8_t flags = 0;
+
     if (crc) {
-        AddCrc(data, datalen);
-        datalen += 2;
+        flags |= FELICA_APPEND_CRC;
     }
 
-    uint8_t flags = 0;
     if (active || active_select) {
         flags |= FELICA_CONNECT;
         if (active) {
